@@ -1,7 +1,9 @@
 const DonerModel = require("../models/donerModel");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const sendPasswordEmail = require("../utilityFunctions/nodeMailer");
+
+ const { sendOtpEmail } = require("../utilityFunctions/nodeMailer");
+
 
 const donerRegistration = async (req, res) => {
   try {
@@ -21,11 +23,6 @@ const donerRegistration = async (req, res) => {
       reEmail,
     } = req.body;
 
-
-    console.log("success");
-    
-
-    // 1. Check if all fields are provided
     if (
       !name ||
       !gender ||
@@ -83,16 +80,10 @@ const donerRegistration = async (req, res) => {
         .status(409)
         .json({ message: "Donor already registered with this email" });
     }
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+    const otpExpires = new Date(Date.now() + 5 * 60 * 1000);
+    await sendOtpEmail(email, otp);
 
-    // 8. Generate a password and email it (you can replace this with actual logic)
-    const plainPassword = Math.random().toString(36).slice(-8); // 8-character random string
-
-    // Hash the password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(plainPassword, salt);
-
-    // TODO: Send email with generated password (use nodemailer)
-    sendPasswordEmail(email, plainPassword);
     // 9. Save donor to DB
     const newDonor = new DonerModel({
       name,
@@ -107,15 +98,16 @@ const donerRegistration = async (req, res) => {
       mobile,
       whatsapp,
       email,
-      password: hashedPassword,
+      otp,
+      otpExpires,
     });
 
     await newDonor.save();
     console.log("registerd ");
 
-    return res
-      .status(201)
-      .json({ message: "Registration successful. Password sent via email." });
+    return res.status(200).json({
+      message: "OTP sent to email. Please verify to complete registration.",
+    });
   } catch (error) {
     console.error("Registration error:", error);
     return res.status(500).json({ message: "Server error" });
@@ -125,8 +117,7 @@ const donerRegistration = async (req, res) => {
 const donorLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
-console.log(email,password);
-
+    console.log(email, password);
 
     // ✅ Basic validation
     if (!email || !password) {
@@ -134,7 +125,6 @@ console.log(email,password);
         .status(400)
         .json({ message: "Email and password are required." });
     }
-
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
@@ -152,7 +142,7 @@ console.log(email,password);
     if (!donor) {
       return res.status(401).json({ message: "Invalid email or password." });
     }
-console.log("hai..");
+    console.log("hai..");
     // 🔐 Compare passwords
     const isMatch = await bcrypt.compare(password, donor.password);
     if (!isMatch) {
@@ -163,9 +153,9 @@ console.log("hai..");
     const token = jwt.sign(
       { id: donor._id, email: donor.email },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
-console.log("token",token);
+    console.log("token", token);
 
     // ✅ Success
     return res.status(200).json({
@@ -186,20 +176,18 @@ console.log("token",token);
   }
 };
 
-const getData= async(req,res)=>{
-
-try {
-  const _id = req.user.id
-  const userData = await DonerModel.findById(_id).select("-password")
-  if(!userData){
-    return res.status(404).json({message:"User not found"})
+const getData = async (req, res) => {
+  try {
+    const _id = req.user.id;
+    const userData = await DonerModel.findById(_id).select("-password");
+    if (!userData) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(200).json({ user: userData });
+  } catch (error) {
+    console.error("Error fetching user data:", error);
+    res.status(500).json({ message: "Server error" });
   }
-  res.status(200).json({user:userData})
-} catch (error) {
-  console.error("Error fetching user data:", error);
-		res.status(500).json({ message: "Server error" });
-}
+};
 
-}
-
-module.exports = { donorLogin, donerRegistration,getData };
+module.exports = { donorLogin, donerRegistration, getData };
