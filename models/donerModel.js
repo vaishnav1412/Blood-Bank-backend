@@ -1,0 +1,73 @@
+const mongoose = require("mongoose");
+
+const donerSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    gender: {
+      type: String,
+      enum: ["Male", "Female", "Other"],
+      required: true,
+    },
+    bloodGroup: {
+      type: String,
+      enum: ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"],
+      required: true,
+    },
+    dob: {
+      type: Date,
+      required: true,
+    },
+    weight: {
+      type: Number,
+      required: true,
+      min: 40,
+    },
+    platelet: {
+      type: String,
+      enum: ["Yes", "No"],
+      required: true,
+    },
+    donationCount: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    district: {
+      type: String,
+      required: true,
+    },
+    taluk: {
+      type: String,
+      required: true,
+    },
+    mobile: {
+      type: String,
+      required: true,
+      match: [/^\d{10}$/, "Please enter a valid 10-digit mobile number"],
+    },
+    whatsapp: {
+      type: String,
+      required: true,
+      match: [/^\d{10}$/, "Please enter a valid 10-digit WhatsApp number"],
+    },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      match: [/.+\@.+\..+/, "Please fill a valid email address"],
+    },
+    password: {
+      type: String,
+      required: true,
+    },
+  },
+  { timestamps: true }
+);
+
+const DonerModel = mongoose.model("Doner", donerSchema);
+module.exports = DonerModel;
