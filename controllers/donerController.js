@@ -1,9 +1,9 @@
 const DonerModel = require("../models/donerModel");
+const OTP = require("../models/otpModel");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
- const { sendOtpEmail } = require("../utilityFunctions/nodeMailer");
-
+const { sendOtpEmail,sendPasswordEmail } = require("../utilityFunctions/nodeMailer");
 
 const donerRegistration = async (req, res) => {
   try {
@@ -82,7 +82,8 @@ const donerRegistration = async (req, res) => {
     }
     const otp = Math.floor(1000 + Math.random() * 9000).toString();
     const otpExpires = new Date(Date.now() + 5 * 60 * 1000);
-    await sendOtpEmail(email, otp);
+    let purpose = "register";
+    await sendOtpEmail(email, otp, purpose);
 
     // 9. Save donor to DB
     const newDonor = new DonerModel({
@@ -190,4 +191,99 @@ const getData = async (req, res) => {
   }
 };
 
-module.exports = { donorLogin, donerRegistration, getData };
+const verifyOtp = async (req, res) => {
+  const { email, otp } = req.body;
+
+  try {
+    const donor = await DonerModel.findOne({ email });
+
+    if (!donor) return res.status(404).json({ message: "User not found" });
+
+    // Check if OTP is expired
+    if (donor.otpExpires < Date.now()) {
+      return res.status(400).json({ message: "OTP expired" });
+    }
+
+    // Check if OTP matches
+    if (donor.otp !== otp) {
+      return res.status(400).json({ message: "Invalid OTP" });
+    }
+
+    // ✅ NEW LOGIC: Generate a random password
+    // Generates a password like "Life4829" (Easy to type/read)
+    const randomPart = Math.floor(1000 + Math.random() * 9000).toString();
+    const generatedPassword = `Life${randomPart}`;
+
+    // ✅ Hash the password before saving (Security Best Practice)
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(generatedPassword, salt);
+
+    // ✅ Send the password email (Must send PLAINTEXT password)
+    await sendPasswordEmail(email, generatedPassword);
+
+    // ✅ Update User Data
+    donor.otp = null;
+    donor.otpExpires = null;
+    donor.isVerified = true;
+    donor.password = hashedPassword; // Save the HASHED version
+
+    await donor.save();
+
+    return res.json({ 
+      message: "Email verified successfully. Password sent to your email." 
+    });
+
+  } catch (error) {
+    console.error("Error verifying OTP:", error);
+    res.status(500).json({ message: "Server error during verification" });
+  }
+};
+
+//forgott password otp generation ,sending
+
+const sendOtp = async (req, res) => {
+  const { email, purpose } = req.body;
+
+  console.log(purpose);
+
+  try {
+    // Check if user exists
+    const user = await DonerModel.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Email not found",
+      });
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    console.log(otp, email, purpose, expiresAt);
+
+    // Save OTP to database
+    await OTP.create({
+      email: email,
+      otp: otp,
+      purpose: purpose,
+      expiresAt: expiresAt,
+    });
+    console.log("hai");
+
+    await sendOtpEmail(email, otp, purpose);
+
+    res.json({
+      success: true,
+      message: "OTP sent successfully",
+    });
+  } catch (error) {
+    console.log("OTP Save Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+module.exports = { donorLogin, donerRegistration, getData, verifyOtp, sendOtp };

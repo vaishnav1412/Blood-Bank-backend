@@ -33,7 +33,7 @@ const sendPasswordEmail = async (to, password) => {
 };
 
 // ✅ Send OTP Email
-const sendOtpEmail = async (email, otp) => {
+const sendOtpEmail = async (email, otp, purpose) => {
   try {
     const transporter = nodemailer.createTransport({
       service: "gmail",
@@ -43,22 +43,62 @@ const sendOtpEmail = async (email, otp) => {
       },
     });
 
-    await transporter.sendMail({
-      from: `"Blood Bank Support" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: "Your OTP Verification Code",
-      html: `
-        <div style="font-family: Arial; padding: 20px;">
-          <h2 style="color: #e11d48;">Email Verification OTP</h2>
-          <p>Hello Donor 👋</p>
-          <p>Your OTP is:</p>
-          <h1 style="letter-spacing: 5px;">${otp}</h1>
-          <p>This OTP is valid for <b>5 minutes</b>.</p>
-        </div>
-      `,
-    });
+    if (purpose === "register") {
+      await transporter.sendMail({
+        from: `"Lifecode 🩸" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: "Verify Your Email - Lifecode OTP",
+        
+        // ✅ FIX: Change 'messageHtml' to 'html'
+        html: `
+          <div style="font-family: Arial; padding: 20px;">
+            <h2 style="color: #e11d48;">🩸 Email Verification OTP</h2>
+            <p>Hello Donor 👋</p>
+            <p>Thank you for registering with <b>Lifecode</b>.</p>
+            <p>Your OTP code is:</p>
 
-    console.log("✅ OTP Email sent successfully!");
+            <h1 style="letter-spacing: 6px; color: #e11d48;">
+              ${otp}
+            </h1>
+
+            <p>This OTP is valid for <b>5 minutes</b>.</p>
+            <p>Please do not share this OTP with anyone.</p>
+          </div>
+        `
+      });
+    }
+
+    // ✅ Forgot Password OTP
+    else if (purpose === "password_reset") {
+      await transporter.sendMail({
+        from: `"Lifecode 🩸" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: "Reset Password OTP - Lifecode",
+
+        // ✅ FIX: Change 'messageHtml' to 'html'
+        html: `
+          <div style="font-family: Arial; padding: 20px;">
+            <h2 style="color: #2563eb;">🔐 Password Reset OTP</h2>
+            <p>Hello 👋</p>
+
+            <p>We received a request to reset your Lifecode account password.</p>
+
+            <p>Your OTP code is:</p>
+
+            <h1 style="letter-spacing: 6px; color: #2563eb;">
+              ${otp}
+            </h1>
+
+            <p>This OTP is valid for <b>10 minutes</b>.</p>
+
+            <p>If you did not request this, please ignore this email.</p>
+          </div>
+        `
+      });
+    } else {
+      throw new Error("Invalid OTP purpose provided.");
+    }
+
   } catch (error) {
     console.error("❌ OTP Email failed:", error);
     throw error;
