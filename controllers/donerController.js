@@ -1,7 +1,9 @@
 const DonerModel = require("../models/donerModel");
 const OTP = require("../models/otpModel");
+const ContactModel = require("../models/contactUsModel")
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const ApplicationModel = require("../models/bloodDriveModel")
 
 const {
   sendOtpEmail,
@@ -496,7 +498,117 @@ const resendOtp = async(req,res)=>{
 }
 
 const contactUs = async(req,res) =>{
-  console.log("contactUs working");
+ try {
+    // 1. Destructure data from request body
+    const { name, email, phone, subject, message } = req.body;
+
+    // 2. Basic Server-Side Validation (Optional but recommended)
+    if (!name || !email || !phone || !subject || !message) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'All fields are required' 
+      });
+    }
+
+    // 3. Create a new contact document
+    const newContact = new ContactModel({
+      name,
+      email,
+      phone,
+      subject,
+      message
+    });
+
+    // 4. Save to Database
+    await newContact.save();
+
+    console.log(`New submission from ${name}:`, email);
+
+    // 5. Send Success Response
+    res.status(201).json({
+      success: true,
+      message: 'Message sent successfully',
+      data: newContact
+    });
+
+    // OPTIONAL: Send Email Logic here using Nodemailer
+    // await sendEmail({ email, subject, message }); 
+
+  } catch (error) {
+    console.error('Contact Form Error:', error);
+
+    // Handle Mongoose Validation Errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(val => val.message);
+      return res.status(400).json({
+        success: false,
+        message: messages.join(', ')
+      });
+    }
+
+    // Handle General Errors
+    res.status(500).json({
+      success: false,
+      message: 'Server Error. Could not submit form.'
+    });
+  }
+  
+}
+
+const campApplication = async(req,res)=>{
+   try {
+    // 1. Extract data from request body
+    const data = req.body;
+
+    // 2. Generate a custom Application ID (e.g., BD-849302)
+    // We match the logic used in the frontend for consistency
+    const applicationId = `BD-${Date.now().toString().slice(-6)}`;
+
+    // 3. Create new application instance
+    const newApplication = new ApplicationModel({
+      ...data,
+      applicationId: applicationId
+    });
+
+    // 4. Save to Database
+    await newApplication.save();
+
+    console.log(`New Blood Drive Application: ${applicationId} by ${data.organizationName}`);
+
+    // 5. Send Success Response
+    res.status(201).json({
+      success: true,
+      message: 'Application submitted successfully',
+      applicationId: applicationId,
+      data: newApplication
+    });
+
+  } catch (error) {
+    console.error('Blood Drive Submission Error:', error);
+
+    // Handle Mongoose Validation Errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(val => val.message);
+      return res.status(400).json({
+        success: false,
+        message: messages.join(', ')
+      });
+    }
+
+    // Handle Duplicate Key Errors (e.g., same Application ID generated twice)
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Duplicate submission detected. Please try again.'
+      });
+    }
+
+    // Handle General Server Errors
+    res.status(500).json({
+      success: false,
+      message: 'Server Error. Could not submit application.'
+    });
+  }
   
 }
 
@@ -509,5 +621,6 @@ module.exports = {
   forgotPasswordOtpValidation,
   resetPassword,
   resendOtp,
-  contactUs
+  contactUs,
+  campApplication
 };
