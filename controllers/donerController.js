@@ -3,7 +3,10 @@ const OTP = require("../models/otpModel");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
-const { sendOtpEmail,sendPasswordEmail } = require("../utilityFunctions/nodeMailer");
+const {
+  sendOtpEmail,
+  sendPasswordEmail,
+} = require("../utilityFunctions/nodeMailer");
 
 const donerRegistration = async (req, res) => {
   try {
@@ -229,10 +232,9 @@ const verifyOtp = async (req, res) => {
 
     await donor.save();
 
-    return res.json({ 
-      message: "Email verified successfully. Password sent to your email." 
+    return res.json({
+      message: "Email verified successfully. Password sent to your email.",
     });
-
   } catch (error) {
     console.error("Error verifying OTP:", error);
     res.status(500).json({ message: "Server error during verification" });
@@ -286,4 +288,226 @@ const sendOtp = async (req, res) => {
   }
 };
 
-module.exports = { donorLogin, donerRegistration, getData, verifyOtp, sendOtp };
+const forgotPasswordOtpValidation = async (req, res) => {
+  const { email, otp } = req.body;
+  console.log(email,otp);
+  
+  try {
+   const otpRecord = await OTP.findOne({
+      email: email,
+      otp: otp,
+      purpose: "password_reset",
+      isUsed: false, 
+      expiresAt: { $gt: new Date() }, // ✅ Correct MongoDB syntax
+    });
+
+    console.log(otpRecord,"hhhh");
+    
+
+    if (!otpRecord) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired OTP",
+      });
+    }
+console.log("close");
+
+    // Mark OTP as used
+   otpRecord.isUsed = true; // Update the data in memory
+await otpRecord.save();  // Commit to database (triggers validation/hooks)
+
+    res.json({
+      success: true,
+      userId: otpRecord.userId,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+const resetPassword = async(req,res) =>{
+  console.log("loading....");
+
+   const {email, newPassword, otp } = req.body;
+
+   console.log(req.body);
+   
+
+  try {
+    // 1. Validation
+    if ( !email || !newPassword || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required.",
+      });
+    }
+
+    // 2. Validate Password Strength
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters long.",
+      });
+    }
+
+    // 3. Verify OTP (Mongoose Syntax)
+    // We look for a record that matches the email/otp and was previously marked as 'verified/used'
+    const otpRecord = await OTP.findOne({
+      email: email,
+      otp: otp,
+      purpose: "password_reset",
+      isUsed: true, // Assuming your verification step set this to true
+    });
+
+    if (!otpRecord) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid session or OTP. Please restart the process.",
+      });
+    }
+
+    // 4. Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // 5. Update User Password (Mongoose Syntax)
+    // We use findByIdAndUpdate
+    await DonerModel.updateOne({email}, {$set:{
+      password: hashedPassword,
+    }});
+
+    // 6. Clean up used OTP records (Mongoose Syntax)
+    // We use deleteMany to remove all used reset attempts for this user
+    await OTP.deleteMany({
+      email: email,
+      purpose: "password_reset",
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Password has been reset successfully. Please login.",
+    });
+
+  } catch (error) {
+    console.error("Reset Password Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error, please try again later.",
+    });
+  }
+  
+}
+
+const resendOtp = async(req,res)=>{
+ const { email } = req.body;
+
+  try {
+    // 1. Check if user exists
+    const user = await DonerModel.findOne({ email });
+    
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Email not found. Please check and try again." 
+      });
+    }
+    
+    // 2. Check rate limiting - prevent OTP flooding (Last 5 minutes)
+    const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
+    
+    const recentOTPs = await OTP.find({
+      email: email,
+      purpose: 'password_reset',
+      createdAt: { $gt: fiveMinsAgo } // ✅ Mongoose syntax uses $gt
+    });
+    
+    // Limit to 3 resends in 5 minutes
+    if (recentOTPs.length >= 3) {
+      return res.status(429).json({
+        success: false,
+        message: "Too many OTP requests. Please wait 5 minutes before trying again."
+      });
+    }
+    
+    // 3. Check last OTP sent time (minimum 30 seconds gap)
+    // Sort by createdAt descending to get the latest one
+    const lastOTP = await OTP.findOne({
+      email: email,
+      purpose: 'password_reset'
+    }).sort({ createdAt: -1 });
+    
+    if (lastOTP) {
+      // Calculate time difference in milliseconds
+      const timeSinceLastOTP = Date.now() - lastOTP.createdAt.getTime();
+      
+      if (timeSinceLastOTP < 30000) { // 30 seconds
+        const waitTime = Math.ceil((30000 - timeSinceLastOTP) / 1000);
+        return res.status(429).json({
+          success: false,
+          message: `Please wait ${waitTime} seconds before requesting a new OTP.`
+        });
+      }
+      
+      // Mark previous OTP as expired explicitly (Optional, but good for cleanup)
+      lastOTP.isExpired = true;
+      await lastOTP.save(); // ✅ Mongoose save syntax
+    }
+    
+    // 4. Generate new 6-digit OTP
+    const newOTP = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+    
+    // 5. Save new OTP to database
+    await OTP.create({
+      userId: user._id, // ✅ Mongoose uses _id
+      email: email,
+      otp: newOTP,
+      purpose: 'password_reset',
+      expiresAt: expiresAt,
+      isResend: true,
+      resendCount: recentOTPs.length + 1
+    });
+    
+    // 6. Send OTP via email
+    // Note: Make sure this function name matches your export
+    await sendOtpEmail(email, newOTP, "password_reset");
+    
+    // 7. Log the resend attempt
+    console.log(`OTP resent to ${email} at ${new Date().toISOString()}`);
+    
+    res.json({
+      success: true,
+      message: "New OTP sent successfully.",
+      expiresAt: expiresAt,
+      resendCount: recentOTPs.length + 1
+    });
+    
+  } catch (error) {
+    console.error("Error resending OTP:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error. Please try again later."
+    });
+  }
+  
+  
+}
+
+const contactUs = async(req,res) =>{
+  console.log("contactUs working");
+  
+}
+
+module.exports = {
+  donorLogin,
+  donerRegistration,
+  getData,
+  verifyOtp,
+  sendOtp,
+  forgotPasswordOtpValidation,
+  resetPassword,
+  resendOtp,
+  contactUs
+};
