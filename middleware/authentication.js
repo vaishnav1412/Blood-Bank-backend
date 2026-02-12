@@ -1,19 +1,48 @@
-const jwt =require('jsonwebtoken')
+const jwt = require("jsonwebtoken");
 
 const authenticateToken = (req, res, next) => {
- 
-  const authHeader = req.headers["authorization"];
- 
-  const token = authHeader && authHeader.split(" ")[1];
+  console.log("health one");
+  
+  try {
+    const authHeader = req.headers.authorization;
 
-  if (!token) return res.status(401).json({ message: "Unauthorized" });
+    // Check header exists
+    if (!authHeader) {
+      return res.status(401).json({
+        success: false,
+        message: "Access denied. No token provided.",
+      });
+    }
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ message: "Token invalid" });
+    // Must start with Bearer
+    if (!authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid token format. Use Bearer token.",
+      });
+    }
 
-    req.user = user;
-    next();
-  });
+    // Extract token
+    const token = authHeader.split(" ")[1];
+
+    // Verify token
+    jwt.verify(token, process.env.JWT_SECRET, (err, decodedUser) => {
+      if (err) {
+        return res.status(403).json({
+          success: false,
+          message: "Token expired or invalid.",
+        });
+      }
+
+      req.user = decodedUser;
+      next();
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server error in authentication middleware.",
+    });
+  }
 };
 
-module.exports ={authenticateToken}
+module.exports = { authenticateToken };

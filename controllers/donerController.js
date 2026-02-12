@@ -1,4 +1,5 @@
 const DonerModel = require("../models/donerModel");
+const HealthStatusModel =require("../models/HealthStatusModel")
 const OTP = require("../models/otpModel");
 const ContactModel = require("../models/contactUsModel")
 const bcrypt = require("bcryptjs");
@@ -612,6 +613,100 @@ const campApplication = async(req,res)=>{
   
 }
 
+const updateHealthStatus =async(req,res)=>{
+   try {
+    // 1. Get donor ID from the request object (attached by authMiddleware)
+    const donorId = req.user.id; 
+console.log(donorId);
+
+    // 2. Destructure data from request body
+    const { weight, platelet, medicalConditions, allergies } = req.body;
+
+    // 3. Validate (Basic)
+    if (!weight || !platelet) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Weight and Platelet count are required" 
+      });
+    }
+
+
+    // 4. Update the Donor
+    // { new: true } ensures we get the updated document back
+    const healthData = await HealthStatusModel.findOneAndUpdate(
+      {_id: donorId }, 
+      {
+        weight,
+        platelet,
+        lastHealthCheck: Date.now(),
+        medicalConditions: medicalConditions || "None",
+        allergies: allergies || "None"
+      }, 
+      { 
+        upsert: true, 
+        new: true, 
+        runValidators: true,
+        setDefaultsOnInsert: true 
+      }
+    );
+
+    if (!healthData) {
+      return res.status(404).json({ message: "Donor not found" });
+    }
+
+    // 5. Send Response
+    res.status(200).json({
+      success: true,
+      message: "Health status updated successfully",
+      donor: healthData
+    });
+
+  } catch (error) {
+    console.error("Health Update Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server Error"
+    });
+  }
+  
+  
+}
+
+const getDonorProfile = async (req, res) => {
+  console.log('pppp');
+  try {
+    // ✅ Get donorId from JWT
+    const donorId = req.user.id;
+console.log(donorId);
+
+    // ✅ Fetch donor details
+    const donor = await DonerModel.findById(donorId).select("-password");
+
+    if (!donor) {
+      return res.status(404).json({
+        success: false,
+        message: "Donor not found",
+      });
+    }
+
+    // ✅ Fetch health details
+    const health = await HealthStatusModel.findOne({ _id:donorId });
+
+    // ✅ Send combined response
+    res.status(200).json({
+      success: true,
+      donor,
+      health: health || null,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching profile",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   donorLogin,
   donerRegistration,
@@ -622,5 +717,7 @@ module.exports = {
   resetPassword,
   resendOtp,
   contactUs,
-  campApplication
+  campApplication,
+  updateHealthStatus,
+  getDonorProfile,
 };

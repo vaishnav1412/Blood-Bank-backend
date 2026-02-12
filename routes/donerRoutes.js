@@ -1,6 +1,6 @@
 const express = require("express")
 const donerRoute = express.Router() 
-const {donorLogin,donerRegistration,getData,verifyOtp,sendOtp,forgotPasswordOtpValidation,resetPassword,resendOtp,contactUs,campApplication} = require("../controllers/donerController")
+const {donorLogin,donerRegistration,getData,verifyOtp,sendOtp,forgotPasswordOtpValidation,resetPassword,resendOtp,contactUs,campApplication,updateHealthStatus,getDonorProfile} = require("../controllers/donerController")
 const {authenticateToken}=require("../middleware/authentication")
 
 
@@ -13,8 +13,9 @@ donerRoute.post("/reset-password",resetPassword)
 donerRoute.post("/resend-otp",resendOtp)
 donerRoute.post("/contact",contactUs)
 donerRoute.post("/applicationSubmission",campApplication)
+donerRoute.post('/healthStatus', authenticateToken,updateHealthStatus);
 
-
+donerRoute.get("/profile-details",authenticateToken,getDonorProfile)
 
 
 donerRoute.post("/get-user-info", authenticateToken, getData);
