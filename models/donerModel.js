@@ -36,6 +36,11 @@ const donerSchema = new mongoose.Schema(
       enum: ["Yes", "No"],
       required: true,
     },
+    level: {
+      type: String,
+      enum: ["New Donor", "Regular Donor", "Hero Donor", "Life Saver"],
+      default: "New Donor",
+    },
 
     donationCount: {
       type: Number,
@@ -94,8 +99,13 @@ const donerSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    profilePic: {
+      type: String, // Cloudinary image URL
+      default: "",
+      required: false,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const DonerModel = mongoose.model("Doner", donerSchema);

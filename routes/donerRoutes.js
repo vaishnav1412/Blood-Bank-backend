@@ -1,7 +1,17 @@
 const express = require("express")
 const donerRoute = express.Router() 
-const {donorLogin,donerRegistration,getData,verifyOtp,sendOtp,forgotPasswordOtpValidation,resetPassword,resendOtp,contactUs,campApplication,updateHealthStatus,getDonorProfile} = require("../controllers/donerController")
+const {donorLogin,donerRegistration,getData,verifyOtp,sendOtp,forgotPasswordOtpValidation,resetPassword,resendOtp,contactUs,campApplication,updateHealthStatus,getDonorProfile,updateProfilePhoto,updateProfile,uploadDonationProof} = require("../controllers/donerController")
 const {authenticateToken}=require("../middleware/authentication")
+const multer = require("multer");
+const storage = multer.memoryStorage();
+const upload = multer({ 
+    storage: storage,
+    limits: { fileSize: 5 * 1024 * 1024 } // Limit to 5MB
+});
+const uploadDonation = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+});
 
 
 donerRoute.post("/doner-register",donerRegistration)
@@ -16,7 +26,9 @@ donerRoute.post("/applicationSubmission",campApplication)
 donerRoute.post('/healthStatus', authenticateToken,updateHealthStatus);
 
 donerRoute.get("/profile-details",authenticateToken,getDonorProfile)
-
+donerRoute.put("/profile-photo",authenticateToken,upload.single("profilePic"),updateProfilePhoto)
+donerRoute.put("/update-profile", authenticateToken, updateProfile);
+donerRoute.post("/upload-proof",authenticateToken, uploadDonation.single("image"), uploadDonationProof)
 
 donerRoute.post("/get-user-info", authenticateToken, getData);
 

@@ -5,7 +5,12 @@ const ContactModel = require("../models/contactUsModel")
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const ApplicationModel = require("../models/bloodDriveModel")
+const DonationProof =require("../models/DonationProof") 
+const multer = require("multer");
+const  cloudinary = require("../config/cloudinary-config")
 
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 const {
   sendOtpEmail,
   sendPasswordEmail,
@@ -77,6 +82,18 @@ const donerRegistration = async (req, res) => {
       return res.status(400).json({ message: "Invalid donation count" });
     }
 
+let level = "New Donor";
+
+if (donationCount >= 10) {
+  level = "Life Saver";
+} else if (donationCount >= 5) {
+  level = "Hero Donor";
+} else if (donationCount >= 1) {
+  level = "Regular Donor";
+}
+
+
+
     // 7. Check if user already exists
     const existingDonor = await DonerModel.findOne({ email });
     if (existingDonor) {
@@ -93,20 +110,21 @@ const donerRegistration = async (req, res) => {
 
     // 9. Save donor to DB
     const newDonor = new DonerModel({
-      name,
-      gender,
-      bloodGroup,
-      dob,
-      weight,
-      platelet,
-      donationCount,
-      district,
-      taluk,
-      mobile,
-      whatsapp,
-      email,
-      otp,
-      otpExpires,
+       name,
+  gender,
+  bloodGroup,
+  dob,
+  weight,
+  platelet,
+  donationCount,
+  level, // ✅ Save level here
+  district,
+  taluk,
+  mobile,
+  whatsapp,
+  email,
+  otp,
+  otpExpires,
     });
 
     await newDonor.save();
@@ -707,6 +725,161 @@ console.log(donorId);
   }
 };
 
+const updateProfilePhoto = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    // 1. Convert buffer to Base64
+    const b64 = Buffer.from(req.file.buffer).toString("base64");
+    const dataURI = "data:" + req.file.mimetype + ";base64," + b64;
+
+    // 2. Define a FIXED name for the file using the User's ID
+    // This ensures the file is always named "user_profiles/USER_ID"
+    const publicId = `user_profiles/${req.user.id}`;
+
+    // 3. Upload to Cloudinary
+    const result = await cloudinary.uploader.upload(dataURI, {
+      public_id: publicId,     // <--- Force this name
+      overwrite: true,          // <--- If file exists, replace it
+      invalidate: true,         // <--- Clear CDN cache so old image disappears immediately
+      folder: "user_profiles",
+      transformation: [
+        { width: 500, height: 500, crop: "fill" }
+      ]
+    });
+
+    // 4. Update User in Database
+    // We only need to save the URL. The ID is fixed logic.
+    const updatedUser = await DonerModel.findByIdAndUpdate(
+      req.user.id,
+      { profilePic: result.secure_url },
+      { new: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Profile photo updated successfully (Old photo replaced)",
+      user: updatedUser
+    });
+
+  } catch (error) {
+    console.error("Upload Error:", error);
+    res.status(500).json({ message: "Error uploading photo" });
+  }
+};
+
+const updateProfile = async(req,res)=>{
+  try {
+    const donorId = req.user.id;
+
+    const updatedDonor = await DonerModel.findByIdAndUpdate(
+      donorId,
+      {
+        name: req.body.name,
+        gender: req.body.gender,
+        bloodGroup: req.body.bloodGroup,
+        dob: req.body.dob,
+
+        weight: req.body.weight,
+        platelet: req.body.platelet,
+        donationCount: req.body.donationCount,
+
+        district: req.body.district,
+        taluk: req.body.taluk,
+
+        mobile: req.body.mobile,
+        whatsapp: req.body.whatsapp,
+
+        email: req.body.email,
+        emergencyContact: req.body.emergencyContact,
+      },
+      { new: true }
+    );
+
+    res.status(200).json({
+      message: "Profile updated successfully",
+      donor: updatedDonor,
+    });
+  } catch (error) {
+    console.log("Update Profile Error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+  
+}
+ const uploadDonationProof = async (req, res) => {
+
+  
+  
+  try {
+    // ✅ Check file
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    const donorId = req.user.id;
+
+    const {
+      donationDate,
+      donationCenter,
+      bloodGroup,
+      units,
+    } = req.body;
+console.log("photo upload...",req.body);
+    // ✅ Validate required fields
+    if (!donationDate || !donationCenter) {
+      return res.status(400).json({
+        message: "Donation Date and Center are required",
+      });
+    }
+
+    // ✅ Convert buffer → Base64 (same as profile pic)
+    const b64 = Buffer.from(req.file.buffer).toString("base64");
+    const dataURI =
+      "data:" + req.file.mimetype + ";base64," + b64;
+
+    // ✅ Unique Public ID (DON'T overwrite)
+    const publicId = `donation_proofs/${donorId}_${Date.now()}`;
+
+    // ✅ Upload to Cloudinary
+    const result = await cloudinary.uploader.upload(dataURI, {
+      public_id: publicId,
+      folder: "donation_proofs",
+
+      transformation: [
+        { width: 800, height: 800, crop: "limit" },
+      ],
+    });
+console.log("test");
+
+    // ✅ Save Proof in MongoDB
+    const newProof = new DonationProof({
+      donorId,
+      donationDate,
+      donationCenter,
+      bloodGroup,
+      units,
+      proofImage: result.secure_url,
+      status: "pending",
+    });
+
+    const response = await newProof.save()
+
+    res.status(201).json({
+      success: true,
+      message: "Donation proof uploaded successfully!",
+      proof: newProof,
+    });
+
+  } catch (error) {
+    console.error("Donation Upload Error:", error);
+    res.status(500).json({
+      message: "Error uploading donation proof",
+    });
+  }
+};
+
 module.exports = {
   donorLogin,
   donerRegistration,
@@ -720,4 +893,7 @@ module.exports = {
   campApplication,
   updateHealthStatus,
   getDonorProfile,
+  updateProfilePhoto,
+  updateProfile,
+  uploadDonationProof
 };
