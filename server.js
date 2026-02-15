@@ -11,6 +11,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(require("cors")());
 
 app.use("/doner",require("./routes/donerRoutes"))
+app.use("/admin",require("./routes/adminRoutes"))
 
 
 

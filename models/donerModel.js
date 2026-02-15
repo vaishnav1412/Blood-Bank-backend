@@ -47,6 +47,11 @@ const donerSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    latestDonatedDate: {
+      type: Date,
+      required: false,
+      default: null,
+    },
 
     district: {
       type: String,
@@ -99,6 +104,10 @@ const donerSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isAdmin: {
+    type: Number,
+    default: 0 
+  },
     profilePic: {
       type: String, // Cloudinary image URL
       default: "",
