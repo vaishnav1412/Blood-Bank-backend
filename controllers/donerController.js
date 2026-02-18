@@ -880,6 +880,189 @@ console.log("test");
   }
 };
 
+
+ const getAllCamps = async (req, res) => {
+  try {
+
+    const camps = await ApplicationModel.find().sort({ createdAt: -1 }).limit(3);
+
+    if (!camps || camps.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No camp requests found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Camp requests fetched successfully",
+      total: camps.length,
+      camps,
+    });
+  } catch (error) {
+    console.error("Error fetching camps:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching camp requests",
+    });
+  }
+};
+
+const searchUser = async (req, res) => {
+  try {
+    const { district, taluk, bloodGroup } = req.query;
+console.log("working");
+
+    let filter = {};
+
+    if (district) filter.district = district;
+    if (taluk) filter.taluk = taluk;
+    if (bloodGroup) filter.bloodGroup = bloodGroup;
+
+    const donors = await DonerModel.find(filter);
+
+    res.status(200).json({
+      success: true,
+      donors,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+const deleteAccount = async (req, res) => {
+  try {
+    const donorId = req.user.id;
+
+    await DonerModel.findByIdAndDelete(donorId);
+
+    res.status(200).json({
+      success: true,
+      message: "Account deleted successfully",
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Server error while deleting account",
+    });
+  }
+};
+const deleteProfilePhoto = async (req, res) => {
+  try {
+    const donorId = req.user.id;
+    if (!donorId) {
+      return res.status(401).json({
+        message: "Unauthorized: Donor ID not found",
+      });
+    }
+    const donor = await DonerModel.findById(donorId);
+    if (!donor) {
+      return res.status(404).json({
+        message: "Donor not found",
+      });
+    }
+    if (!donor.profilePic) {
+      return res.status(400).json({
+        message: "No profile photo to remove",
+      });
+    }
+    donor.profilePic = null;
+    await donor.save();
+    return res.status(200).json({
+      message: "Profile photo removed successfully",
+      donor,
+    });
+  } catch (error) {
+    console.error("Delete Profile Photo Error:", error);
+    return res.status(500).json({
+      message: "Server error while deleting profile photo",
+      error: error.message,
+    });
+  }
+};
+
+const getDonationHistory = async (req, res) => {
+  try {
+    const donorId = req.user.id;
+
+
+    if (!donorId) {
+      return res.status(401).json({
+        message: "Unauthorized access",
+      });
+    }
+
+    // ✅ Find donor donation proofs (history)
+   const proofs = await DonationProof.find({ donorId })
+console.log(proofs);
+
+    if (!proofs) {
+      return res.status(404).json({
+        message: "Donor not found",
+      });
+    }
+
+    return res.status(200).json({
+      message: "Donation history fetched successfully",
+      history: proofs || [],
+    });
+
+  } catch (error) {
+    console.error("Fetch Donation History Error:", error);
+
+    return res.status(500).json({
+      message: "Server error while fetching donation history",
+      error: error.message,
+    });
+  }
+};
+
+const deleteDonationProof = async(req,res)=>{
+  try {
+    const donorId = req.user.id;
+    const proofId = req.params.id;
+
+    // ✅ Find Proof
+    const proof = await DonationProof.findById(proofId);
+
+    if (!proof) {
+      return res.status(404).json({
+        message: "Donation proof not found",
+      });
+    }
+
+    // ✅ Only Owner Can Delete
+    if (proof.donorId.toString() !== donorId) {
+      return res.status(403).json({
+        message: "Unauthorized action",
+      });
+    }
+
+    // ❌ Optional: Cloudinary delete here if needed
+
+    // ✅ Delete Proof
+    await DonationProof.findByIdAndDelete(proofId);
+
+    res.status(200).json({
+      message: "Donation proof deleted successfully!",
+    });
+  } catch (error) {
+    console.error("Delete Proof Error:", error);
+
+    res.status(500).json({
+      message: "Server error while deleting donation proof",
+    });
+  }
+  
+}
+
+
+
+
 module.exports = {
   donorLogin,
   donerRegistration,
@@ -895,5 +1078,11 @@ module.exports = {
   getDonorProfile,
   updateProfilePhoto,
   updateProfile,
-  uploadDonationProof
+  uploadDonationProof,
+  getAllCamps,
+  searchUser,
+  deleteAccount,
+  deleteProfilePhoto,
+  getDonationHistory,
+  deleteDonationProof 
 };
