@@ -8,9 +8,12 @@ const ApplicationModel = require("../models/bloodDriveModel")
 const DonationProof =require("../models/DonationProof") 
 const multer = require("multer");
 const  cloudinary = require("../config/cloudinary-config")
-
+const axios= require("axios")
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
+ 
+
+
 const {
   sendOtpEmail,
   sendPasswordEmail,
@@ -1060,6 +1063,36 @@ const deleteDonationProof = async(req,res)=>{
   
 }
 
+const chatbot = async (req, res) => {
+  try {
+    const userMessage = req.body.message;
+
+    console.log("User:", userMessage);
+
+    const response = await fetch("http://127.0.0.1:11434/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "llama3",
+        prompt: `You are a blood donation assistant. Answer in short.\nUser: ${userMessage}\nBot:`,
+        stream: false,
+      }),
+    });
+
+    const data = await response.json();
+
+    console.log("Bot Reply:", data.response);
+
+    res.json({ reply: data.response });
+  } catch (error) {
+    console.log("Ollama Error:", error);
+    res.status(500).json({ error: "Chatbot failed" });
+  }
+};
+
+
+
+
 
 
 
@@ -1084,5 +1117,6 @@ module.exports = {
   deleteAccount,
   deleteProfilePhoto,
   getDonationHistory,
-  deleteDonationProof 
+  deleteDonationProof,
+  chatbot
 };
