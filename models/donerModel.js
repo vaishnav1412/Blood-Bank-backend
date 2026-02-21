@@ -104,6 +104,10 @@ const donerSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isBlocked:{
+      type:Boolean,
+      default:false
+    },
     isAdmin: {
     type: Number,
     default: 0 

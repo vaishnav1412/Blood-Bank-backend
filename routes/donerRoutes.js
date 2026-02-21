@@ -22,7 +22,7 @@ const {
   deleteProfilePhoto,
   getDonationHistory,
   deleteDonationProof,
-  chatbot
+  chatbot,
 } = require("../controllers/donerController");
 const { authenticateToken } = require("../middleware/authentication");
 const multer = require("multer");
@@ -35,10 +35,6 @@ const uploadDonation = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
 });
-
-
-
-
 
 donerRoute.post("/doner-register", donerRegistration);
 donerRoute.post("/verify-otp", verifyOtp);
@@ -73,5 +69,5 @@ donerRoute.post(
   uploadDonationProof,
 );
 donerRoute.post("/get-user-info", authenticateToken, getData);
-donerRoute.post("/chatbot",chatbot)
+donerRoute.post("/chatbot", chatbot);
 module.exports = donerRoute;
