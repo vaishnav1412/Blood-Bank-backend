@@ -1,10 +1,12 @@
-const DonorModel = require("../models/donerModel")
-const CampModel = require("../models/bloodDriveModel")
-const ContactModel = require("../models/contactUsModel")
-const ProofModel  = require("../models/DonationProof")
-const cloudinary = require("../config/cloudinary-config") ;
+const DonorModel = require("../models/donerModel");
+const CampModel = require("../models/bloodDriveModel");
+const ContactModel = require("../models/contactUsModel");
+const ProofModel = require("../models/DonationProof");
+const GalleryModel = require("../models/galleryModel");
+const streamifier = require("streamifier");
+const cloudinary = require("../config/cloudinary-config");
 const jwt = require("jsonwebtoken");
-const bcrypt = require("bcryptjs")
+const bcrypt = require("bcryptjs");
 
 const adminLogin = async (req, res) => {
   const { email, password } = req.body;
@@ -25,10 +27,10 @@ const adminLogin = async (req, res) => {
         message: "Invalid email or password",
       });
     }
-  console.log(user.password);
-  
+    console.log(user.password);
+
     // ✅ 3. Compare password
-    const isMatch = await bcrypt.compare(password,user.password)
+    const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
       return res.status(401).json({
@@ -51,11 +53,10 @@ const adminLogin = async (req, res) => {
         isAdmin: 1,
       },
       process.env.JWT_SECRET_ADMIN,
-      { expiresIn: "1d" }
+      { expiresIn: "1d" },
     );
 
     console.log(token);
-    
 
     // ✅ 6. Send Response
     return res.status(200).json({
@@ -76,7 +77,6 @@ const adminLogin = async (req, res) => {
     });
   }
 };
-
 
 const getCount = async (req, res) => {
   try {
@@ -109,7 +109,9 @@ const getCount = async (req, res) => {
     let responseRate = 0;
 
     if (totalCampRequests > 0) {
-      responseRate = ((conductedCampCount / totalCampRequests) * 100).toFixed(1);
+      responseRate = ((conductedCampCount / totalCampRequests) * 100).toFixed(
+        1,
+      );
     }
 
     // ✅ Send Response
@@ -174,7 +176,9 @@ const getDashboardStats = async (req, res) => {
     });
 
     // ✅ Total Blood Requests
-    const totalRequests = await ProofModel.countDocuments({status:"verified"});
+    const totalRequests = await ProofModel.countDocuments({
+      status: "verified",
+    });
 
     // ✅ Active Camps (Approved + Upcoming)
     const activeCamps = await CampModel.countDocuments({
@@ -207,10 +211,9 @@ const getDashboardStats = async (req, res) => {
       eventDate: { $gte: new Date() },
     })
       .sort({ date: 1 })
-      .limit(3)
-      
-      console.log(upcomingCamps);
-      
+      .limit(3);
+
+    console.log(upcomingCamps);
 
     return res.status(200).json({
       success: true,
@@ -274,7 +277,6 @@ const getAllUsers = async (req, res) => {
       totalPages: Math.ceil(totalUsers / limitNumber),
       currentPage: pageNumber,
     });
-
   } catch (error) {
     console.error("Fetch Users Error:", error);
     res.status(500).json({
@@ -307,7 +309,6 @@ const blockUser = async (req, res) => {
       success: true,
       message: "User blocked successfully",
     });
-
   } catch (error) {
     console.error("Block error:", error);
     res.status(500).json({
@@ -316,7 +317,6 @@ const blockUser = async (req, res) => {
     });
   }
 };
-
 
 const UnBlockUser = async (req, res) => {
   try {
@@ -332,7 +332,6 @@ const UnBlockUser = async (req, res) => {
     }
 
     user.isBlocked = false;
-    
 
     await user.save();
 
@@ -340,7 +339,6 @@ const UnBlockUser = async (req, res) => {
       success: true,
       message: "User unblocked successfully",
     });
-
   } catch (error) {
     console.error("Unblock error:", error);
     res.status(500).json({
@@ -349,8 +347,6 @@ const UnBlockUser = async (req, res) => {
     });
   }
 };
-
-
 
 const addDonor = async (req, res) => {
   try {
@@ -362,28 +358,36 @@ const addDonor = async (req, res) => {
       donationCount,
       password,
       whatsapp,
-         // Mapped to 'dob' in schema
+      // Mapped to 'dob' in schema
       gender,
       district,
       taluk,
       bloodGroup,
       weight,
       latestDonatedDate, // Mapped to 'latestDonatedDate' in schema
-      platelet,       // Required in schema
+      platelet, // Required in schema
       // Fields below are in req.body but NOT in your provided Schema
       // address, pincode, medicalConditions, etc.
     } = req.body;
 
     console.log(req.body);
-    
 
     // 1. Validation: Check required fields based on Schema
-    if (!name || !email || !mobile || !password || !bloodGroup || !platelet||!dob) {
-     console.log("working");
-     
+    if (
+      !name ||
+      !email ||
+      !mobile ||
+      !password ||
+      !bloodGroup ||
+      !platelet ||
+      !dob
+    ) {
+      console.log("working");
+
       return res.status(400).json({
         success: false,
-        message: "Please provide all required fields (Name, Email, Mobile, Password, Blood Group, Platelet)",
+        message:
+          "Please provide all required fields (Name, Email, Mobile, Password, Blood Group, Platelet)",
       });
     }
 
@@ -409,28 +413,28 @@ const addDonor = async (req, res) => {
           (error, result) => {
             if (error) reject(error);
             else resolve(result);
-          }
+          },
         );
         stream.end(req.files.profilePhoto[0].buffer);
       });
       profilePicUrl = result.secure_url;
     }
-    
+
     // Note: 'idProof' logic was removed as it is not in the provided Schema.
     // If you need it, please add `idProof: String` to your schema.
 
     // 5. Create Donor
-    const newDonor =  new DonorModel({
+    const newDonor = new DonorModel({
       // Map request body to Schema fields
       name,
       email,
       mobile,
       whatsapp,
-      
+
       password: hashedPassword,
-      
+
       // Mapping specific names
-      dob, 
+      dob,
       latestDonatedDate,
       profilePic: profilePicUrl,
 
@@ -445,29 +449,28 @@ const addDonor = async (req, res) => {
       // Logic fields
       donationCount: 0, // Schema requires this, default 0 for new donor
       level: "New Donor", // Default defined in schema, but explicit here
-      
+
       // Status fields
-      isVerified: true,  // Auto verified
+      isVerified: true, // Auto verified
       isBlocked: false,
-      isAdmin: 0
+      isAdmin: 0,
     });
 
-    await newDonor.save()
+    await newDonor.save();
 
     res.status(201).json({
       success: true,
       message: "Donor added and auto-verified successfully",
       donor: newDonor,
     });
-
   } catch (error) {
     console.error("Add Donor Error:", error);
-    
+
     // Handle validation errors specifically
-    if (error.name === 'ValidationError') {
+    if (error.name === "ValidationError") {
       return res.status(400).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     }
 
@@ -478,17 +481,267 @@ const addDonor = async (req, res) => {
   }
 };
 
+const uploadGallery = async (req, res) => {
+  try {
+    console.log(req.body);
+
+    const {
+      title,
+      description,
+      category,
+      type,
+      date,
+      location,
+      featured,
+      status,
+      tags,
+      content,
+      author,
+    } = req.body;
+
+    if (!title || !type || !category || !date) {
+      return res.status(400).json({
+        success: false,
+        message: "Required fields missing",
+      });
+    }
+
+    let image = "";
+    let videoUrl = "";
+    let publicId = "";
+
+    if (req.file) {
+      const isVideo = req.file.mimetype.startsWith("video");
+
+      const uploadFromBuffer = () => {
+        return new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            {
+              folder: "blood-bank/gallery",
+              resource_type: isVideo ? "video" : "image",
+            },
+            (error, result) => {
+              if (result) resolve(result);
+              else reject(error);
+            },
+          );
+
+          streamifier.createReadStream(req.file.buffer).pipe(stream);
+        });
+      };
+
+      const result = await uploadFromBuffer();
+
+      publicId = result.public_id;
+
+      if (isVideo) {
+        videoUrl = result.secure_url;
+      } else {
+        image = result.secure_url;
+      }
+    }
+
+    const newItem = new GalleryModel({
+      title,
+      description,
+      category,
+      type,
+      date,
+      location,
+      featured: featured === "true",
+      status,
+      tags: tags ? JSON.parse(tags) : [],
+      image,
+      videoUrl,
+      publicId,
+      content,
+      author,
+    });
+
+    const result = await newItem.save();
+
+    res.status(201).json({
+      success: true,
+      data: newItem,
+    });
+  } catch (error) {
+    console.error("Upload Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+const getAllGallery = async (req, res) => {
+  try {
+    const items = await GalleryModel.find().sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      data: items,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+const updateGalleryItem = async (req, res) => {
+  console.log("hi");
+  
+  try {
+    const { id } = req.params;
+    const existingItem = await GalleryModel.findById(id);
+    if (!existingItem) {
+      return res.status(404).json({
+        success: false,
+        message: "Gallery item not found",
+      });
+    }
+    let mediaUrl = existingItem.image || existingItem.videoUrl;
+    let publicId = existingItem.publicId;
+    if (req.file) {
+      if (publicId) {
+        await cloudinary.uploader.destroy(publicId, {
+          resource_type: existingItem.type === "video" ? "video" : "image",
+        });
+      }
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: "gallery",
+        resource_type: req.body.type === "video" ? "video" : "image",
+      });
+      mediaUrl = result.secure_url;
+      publicId = result.public_id;
+    }
+    const updatedItem = await GalleryModel.findByIdAndUpdate(
+      id,
+      {
+        title: req.body.title,
+        description: req.body.description,
+        category: req.body.category,
+        type: req.body.type,
+        date: req.body.date,
+        location: req.body.location,
+        tags: JSON.parse(req.body.tags || "[]"),
+        content: req.body.content,
+        author: req.body.author,
+        featured: req.body.featured === "true",
+        status: req.body.status,
+        image: req.body.type === "photo" ? mediaUrl : undefined,
+        videoUrl: req.body.type === "video" ? mediaUrl : undefined,
+        publicId,
+      },
+      { new: true }
+    );
+    res.status(200).json({
+      success: true,
+      data: updatedItem,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Update failed",
+    });
+  }
+};
 
 
+const deleteGalleryItem = async (req, res) => {
+  try {
+    const { id } = req.params;
 
-module.exports ={
-    adminLogin,
-    getCount,
-    getBloodGroupCount,
-    getDashboardStats,
-    getAllUsers,
-    blockUser,
-    UnBlockUser,
-    addDonor
-    
-}
+    const item = await GalleryModel.findById(id);
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        message: "Gallery item not found",
+      });
+    }
+
+    // Delete media from Cloudinary if exists
+    if (item.public_id) {
+      await cloudinary.uploader.destroy(item.public_id, {
+        resource_type: item.type === "video" ? "video" : "image",
+      });
+    }
+
+    await GalleryModel.findByIdAndDelete(id);
+
+    res.status(200).json({
+      success: true,
+      message: "Gallery item deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+const getAllContactMessages = async (req, res) => {
+  try {
+    const messages = await ContactModel.find().sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      data: messages,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch contact messages",
+    });
+  }
+};
+
+// DELETE multiple contacts
+const deleteContacts = async (req, res) => {
+  try {
+    const { ids } = req.body;
+
+    if (!ids || !ids.length) {
+      return res.status(400).json({
+        success: false,
+        message: "No IDs provided",
+      });
+    }
+
+    await ContactModel.deleteMany({
+      _id: { $in: ids },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Messages deleted successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete messages",
+    });
+  }
+};
+
+module.exports = {
+  adminLogin,
+  getCount,
+  getBloodGroupCount,
+  getDashboardStats,
+  getAllUsers,
+  blockUser,
+  UnBlockUser,
+  addDonor,
+  uploadGallery,
+  getAllGallery,
+  updateGalleryItem,
+  deleteGalleryItem,
+  getAllContactMessages,
+  deleteContacts
+};

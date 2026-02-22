@@ -44,6 +44,9 @@ donerRoute.post("/verify-forgot-otp", forgotPasswordOtpValidation);
 donerRoute.post("/reset-password", resetPassword);
 donerRoute.post("/resend-otp", resendOtp);
 donerRoute.post("/contact", contactUs);
+
+donerRoute.post("/contact-private",authenticateToken,contactUs);
+
 donerRoute.post("/applicationSubmission", campApplication);
 donerRoute.post("/healthStatus", authenticateToken, updateHealthStatus);
 donerRoute.get("/getAllCamps", getAllCamps);
