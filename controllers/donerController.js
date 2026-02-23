@@ -1100,6 +1100,33 @@ const chatbot = async (req, res) => {
 };
 
 
+const getMyContactHistory = async (req, res) => {
+  try {
+    const userId = req.user.id; // from auth middleware
+
+    const contacts = await ContactModel.find({
+      userId,
+      isDeleted: { $ne: true }
+    })
+      .sort({ createdAt: -1 })
+      .select("-__v")
+      .lean();
+
+    res.json({
+      success: true,
+      data: contacts
+    });
+
+  } catch (error) {
+    console.error("Get contact history error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch contact history"
+    });
+  }
+};
+
+
 
 
 
@@ -1131,4 +1158,5 @@ module.exports = {
   getDonationHistory,
   deleteDonationProof,
   chatbot,
+  getMyContactHistory,
 };

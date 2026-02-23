@@ -826,6 +826,8 @@ const replyToContact = async (req, res) => {
 };
 
 
+
+
 module.exports = {
   adminLogin,
   getCount,
@@ -842,5 +844,6 @@ module.exports = {
   getAllContactMessages,
   deleteContacts,
   updateContactStatus,
-  replyToContact
+  replyToContact,
+  
 };

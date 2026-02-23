@@ -23,6 +23,7 @@ const {
   getDonationHistory,
   deleteDonationProof,
   chatbot,
+  getMyContactHistory
 } = require("../controllers/donerController");
 const { authenticateToken } = require("../middleware/authentication");
 const multer = require("multer");
@@ -73,4 +74,6 @@ donerRoute.post(
 );
 donerRoute.post("/get-user-info", authenticateToken, getData);
 donerRoute.post("/chatbot", chatbot);
+
+donerRoute.get("/my-contacts-history", authenticateToken, getMyContactHistory);
 module.exports = donerRoute;
