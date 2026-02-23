@@ -729,6 +729,43 @@ const deleteContacts = async (req, res) => {
   }
 };
 
+const updateContactStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!["read", "unread"].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid status value",
+      });
+    }
+
+    const updated = await ContactModel.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: "Message not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: updated,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to update status",
+    });
+  }
+};
+
 module.exports = {
   adminLogin,
   getCount,
@@ -743,5 +780,6 @@ module.exports = {
   updateGalleryItem,
   deleteGalleryItem,
   getAllContactMessages,
-  deleteContacts
+  deleteContacts,
+  updateContactStatus
 };
