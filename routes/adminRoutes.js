@@ -15,7 +15,8 @@ const {
   deleteGalleryItem,
   getAllContactMessages,
   deleteContacts,
-  updateContactStatus
+  updateContactStatus,
+  replyToContact
 } = require("../controllers/adminController");
 const { authenticateTokenAdmin } = require("../middleware/adminAuthentication");
 const video_upload = require("../middleware/video_upload");
@@ -46,4 +47,5 @@ adminRoute.get("/contact-messages", getAllContactMessages);
 adminRoute.delete("/delete-contacts", deleteContacts);
 adminRoute.delete("/delete-gallery/:id", deleteGalleryItem);
 adminRoute.patch("/update-contact-status/:id",updateContactStatus)
+adminRoute.put("/contact-reply/:id",authenticateTokenAdmin,replyToContact);
 module.exports = adminRoute;

@@ -105,8 +105,47 @@ const sendOtpEmail = async (email, otp, purpose) => {
   }
 };
 
+
+const sendReplyEmail = async (to, name, subject, replyMessage) => {
+  try {
+
+     const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+    
+    await transporter.sendMail({
+      from: `"Lifecode Support 🩸" <${process.env.EMAIL_USER}>`,
+      to,
+      subject: `Reply to your query: ${subject}`,
+      html: `
+        <div style="font-family: Arial; padding: 20px;">
+          <h2 style="color:#e11d48;">🩸 Lifecode Support Reply</h2>
+          <p>Hello ${name},</p>
+
+          <p>${replyMessage}</p>
+
+          <br/>
+          <p>If you have further questions, feel free to reply back.</p>
+
+          <p>Regards,<br/><strong>Lifecode Support Team</strong></p>
+        </div>
+      `,
+    });
+
+    console.log("✅ Reply Email sent successfully!");
+
+  } catch (error) {
+    console.error("❌ Reply Email failed:", error);
+    throw error;
+  }
+};
 // ✅ Export Both Functions
 module.exports = {
   sendPasswordEmail,
   sendOtpEmail,
+  sendReplyEmail
 };

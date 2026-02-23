@@ -8,6 +8,9 @@ const cloudinary = require("../config/cloudinary-config");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 
+const {sendReplyEmail } =require("../utilityFunctions/nodeMailer")
+
+
 const adminLogin = async (req, res) => {
   const { email, password } = req.body;
 
@@ -766,6 +769,63 @@ const updateContactStatus = async (req, res) => {
   }
 };
 
+const replyToContact = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { replyMessage } = req.body;
+
+    if (!replyMessage || replyMessage.trim() === "") {
+      return res.status(400).json({
+        success: false,
+        message: "Reply message is required",
+      });
+    }
+
+    const contact = await ContactModel.findById(id);
+
+    if (!contact || contact.isDeleted) {
+      return res.status(404).json({
+        success: false,
+        message: "Contact message not found",
+      });
+    }
+
+    // ✅ Push reply into array
+    contact.replies.push({
+      adminId: req.admin.id, // From admin middleware
+      replyMessage,
+    });
+
+    // ✅ Update ticket state
+    contact.replied = true;
+    contact.status = "in-progress";
+    contact.lastRepliedAt = new Date();
+
+    await contact.save();
+
+    // ✅ Send Email
+    await sendReplyEmail(
+  contact.email,
+  contact.name,
+  contact.subject,
+  replyMessage
+);
+
+    res.json({
+      success: true,
+      message: "Reply sent successfully",
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+
 module.exports = {
   adminLogin,
   getCount,
@@ -781,5 +841,6 @@ module.exports = {
   deleteGalleryItem,
   getAllContactMessages,
   deleteContacts,
-  updateContactStatus
+  updateContactStatus,
+  replyToContact
 };
