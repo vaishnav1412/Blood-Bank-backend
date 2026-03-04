@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const DonerModel = require("../models/donerModel");
+const OTP = require("../models/otpModel");
 const generateStrongPassword = require("../utilityFunctions/passwordGenerator");
 const {
   sendOtpEmail,
@@ -151,7 +152,6 @@ const resendRegisterOtp = async (req, res) => {
       });
     }
 
-    // 1️⃣ Find user
     const user = await DonerModel.findOne({ email });
 
     if (!user) {
@@ -161,7 +161,6 @@ const resendRegisterOtp = async (req, res) => {
       });
     }
 
-    // 2️⃣ Check if already verified
     if (user.isVerified) {
       return res.status(400).json({
         success: false,
@@ -169,7 +168,6 @@ const resendRegisterOtp = async (req, res) => {
       });
     }
 
-    // 3️⃣ Minimum resend gap (60 seconds)
     if (user.otpExpires) {
       const timeSinceLastOtp = Date.now() - new Date(user.updatedAt).getTime();
 
@@ -183,18 +181,15 @@ const resendRegisterOtp = async (req, res) => {
       }
     }
 
-    // 4️⃣ Generate new 4-digit OTP
     const newOtp = Math.floor(1000 + Math.random() * 9000).toString();
 
     const otpExpires = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
-    // 5️⃣ Update user document
     user.otp = newOtp;
     user.otpExpires = otpExpires;
 
     await user.save();
 
-    // 6️⃣ Send email (register purpose)
     await sendOtpEmail(email, newOtp, "register");
 
     console.log(`Register OTP resent to ${email}`);
@@ -252,7 +247,7 @@ const donorLogin = async (req, res) => {
         if (donor.tempBlockCount >= 2) {
           donor.permanentBlock = true;
         } else {
-          donor.lockUntil = Date.now() + 10 * 60 * 1000; // 10 minutes
+          donor.lockUntil = Date.now() + 10 * 60 * 1000;
         }
         donor.loginAttempts = 0;
       }
@@ -286,10 +281,7 @@ const donorLogin = async (req, res) => {
 const sendOtp = async (req, res) => {
   const { email, purpose } = req.body;
 
-  console.log(purpose);
-
   try {
-    // Check if user exists
     const user = await DonerModel.findOne({ email });
 
     if (!user) {
@@ -299,19 +291,15 @@ const sendOtp = async (req, res) => {
       });
     }
 
-    // Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-    console.log(otp, email, purpose, expiresAt);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-    // Save OTP to database
     await OTP.create({
       email: email,
       otp: otp,
       purpose: purpose,
       expiresAt: expiresAt,
     });
-    console.log("hai");
 
     await sendOtpEmail(email, otp, purpose);
 
@@ -330,7 +318,6 @@ const sendOtp = async (req, res) => {
 
 const forgotPasswordOtpValidation = async (req, res) => {
   const { email, otp } = req.body;
-  console.log(email, otp);
 
   try {
     const otpRecord = await OTP.findOne({
@@ -338,10 +325,8 @@ const forgotPasswordOtpValidation = async (req, res) => {
       otp: otp,
       purpose: "password_reset",
       isUsed: false,
-      expiresAt: { $gt: new Date() }, // ✅ Correct MongoDB syntax
+      expiresAt: { $gt: new Date() },
     });
-
-    console.log(otpRecord, "hhhh");
 
     if (!otpRecord) {
       return res.status(400).json({
@@ -349,11 +334,9 @@ const forgotPasswordOtpValidation = async (req, res) => {
         message: "Invalid or expired OTP",
       });
     }
-    console.log("close");
 
-    // Mark OTP as used
-    otpRecord.isUsed = true; // Update the data in memory
-    await otpRecord.save(); // Commit to database (triggers validation/hooks)
+    otpRecord.isUsed = true;
+    await otpRecord.save();
 
     res.json({
       success: true,
@@ -368,14 +351,9 @@ const forgotPasswordOtpValidation = async (req, res) => {
 };
 
 const resetPassword = async (req, res) => {
-  console.log("loading....");
-
   const { email, newPassword, otp } = req.body;
 
-  console.log(req.body);
-
   try {
-    // 1. Validation
     if (!email || !newPassword || !otp) {
       return res.status(400).json({
         success: false,
@@ -383,7 +361,6 @@ const resetPassword = async (req, res) => {
       });
     }
 
-    // 2. Validate Password Strength
     if (newPassword.length < 6) {
       return res.status(400).json({
         success: false,
@@ -391,13 +368,11 @@ const resetPassword = async (req, res) => {
       });
     }
 
-    // 3. Verify OTP (Mongoose Syntax)
-    // We look for a record that matches the email/otp and was previously marked as 'verified/used'
     const otpRecord = await OTP.findOne({
       email: email,
       otp: otp,
       purpose: "password_reset",
-      isUsed: true, // Assuming your verification step set this to true
+      isUsed: true,
     });
 
     if (!otpRecord) {
@@ -407,11 +382,8 @@ const resetPassword = async (req, res) => {
       });
     }
 
-    // 4. Hash the new password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    // 5. Update User Password (Mongoose Syntax)
-    // We use findByIdAndUpdate
     await DonerModel.updateOne(
       { email },
       {
@@ -421,8 +393,6 @@ const resetPassword = async (req, res) => {
       },
     );
 
-    // 6. Clean up used OTP records (Mongoose Syntax)
-    // We use deleteMany to remove all used reset attempts for this user
     await OTP.deleteMany({
       email: email,
       purpose: "password_reset",
@@ -445,7 +415,6 @@ const resendOtp = async (req, res) => {
   const { email } = req.body;
 
   try {
-    // 1. Check if user exists
     const user = await DonerModel.findOne({ email });
 
     if (!user) {
@@ -455,16 +424,14 @@ const resendOtp = async (req, res) => {
       });
     }
 
-    // 2. Check rate limiting - prevent OTP flooding (Last 5 minutes)
     const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
 
     const recentOTPs = await OTP.find({
       email: email,
       purpose: "password_reset",
-      createdAt: { $gt: fiveMinsAgo }, // ✅ Mongoose syntax uses $gt
+      createdAt: { $gt: fiveMinsAgo },
     });
 
-    // Limit to 3 resends in 5 minutes
     if (recentOTPs.length >= 3) {
       return res.status(429).json({
         success: false,
@@ -473,19 +440,15 @@ const resendOtp = async (req, res) => {
       });
     }
 
-    // 3. Check last OTP sent time (minimum 30 seconds gap)
-    // Sort by createdAt descending to get the latest one
     const lastOTP = await OTP.findOne({
       email: email,
       purpose: "password_reset",
     }).sort({ createdAt: -1 });
 
     if (lastOTP) {
-      // Calculate time difference in milliseconds
       const timeSinceLastOTP = Date.now() - lastOTP.createdAt.getTime();
 
       if (timeSinceLastOTP < 30000) {
-        // 30 seconds
         const waitTime = Math.ceil((30000 - timeSinceLastOTP) / 1000);
         return res.status(429).json({
           success: false,
@@ -493,18 +456,15 @@ const resendOtp = async (req, res) => {
         });
       }
 
-      // Mark previous OTP as expired explicitly (Optional, but good for cleanup)
       lastOTP.isExpired = true;
-      await lastOTP.save(); // ✅ Mongoose save syntax
+      await lastOTP.save();
     }
 
-    // 4. Generate new 6-digit OTP
     const newOTP = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
 
-    // 5. Save new OTP to database
     await OTP.create({
-      userId: user._id, // ✅ Mongoose uses _id
+      userId: user._id,
       email: email,
       otp: newOTP,
       purpose: "password_reset",
@@ -513,11 +473,8 @@ const resendOtp = async (req, res) => {
       resendCount: recentOTPs.length + 1,
     });
 
-    // 6. Send OTP via email
-    // Note: Make sure this function name matches your export
     await sendOtpEmail(email, newOTP, "password_reset");
 
-    // 7. Log the resend attempt
     console.log(`OTP resent to ${email} at ${new Date().toISOString()}`);
 
     res.json({
@@ -535,8 +492,6 @@ const resendOtp = async (req, res) => {
   }
 };
 
-
-
 //------------------------End Forgott Password Part -------------------------
 
 module.exports = {
@@ -547,5 +502,5 @@ module.exports = {
   sendOtp,
   forgotPasswordOtpValidation,
   resetPassword,
-  resendOtp
+  resendOtp,
 };
