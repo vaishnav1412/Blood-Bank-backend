@@ -411,87 +411,6 @@ const resetPassword = async (req, res) => {
   }
 };
 
-const resendOtp = async (req, res) => {
-  const { email } = req.body;
-
-  try {
-    const user = await DonerModel.findOne({ email });
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "Email not found. Please check and try again.",
-      });
-    }
-
-    const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
-
-    const recentOTPs = await OTP.find({
-      email: email,
-      purpose: "password_reset",
-      createdAt: { $gt: fiveMinsAgo },
-    });
-
-    if (recentOTPs.length >= 3) {
-      return res.status(429).json({
-        success: false,
-        message:
-          "Too many OTP requests. Please wait 5 minutes before trying again.",
-      });
-    }
-
-    const lastOTP = await OTP.findOne({
-      email: email,
-      purpose: "password_reset",
-    }).sort({ createdAt: -1 });
-
-    if (lastOTP) {
-      const timeSinceLastOTP = Date.now() - lastOTP.createdAt.getTime();
-
-      if (timeSinceLastOTP < 30000) {
-        const waitTime = Math.ceil((30000 - timeSinceLastOTP) / 1000);
-        return res.status(429).json({
-          success: false,
-          message: `Please wait ${waitTime} seconds before requesting a new OTP.`,
-        });
-      }
-
-      lastOTP.isExpired = true;
-      await lastOTP.save();
-    }
-
-    const newOTP = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
-
-    await OTP.create({
-      userId: user._id,
-      email: email,
-      otp: newOTP,
-      purpose: "password_reset",
-      expiresAt: expiresAt,
-      isResend: true,
-      resendCount: recentOTPs.length + 1,
-    });
-
-    await sendOtpEmail(email, newOTP, "password_reset");
-
-    console.log(`OTP resent to ${email} at ${new Date().toISOString()}`);
-
-    res.json({
-      success: true,
-      message: "New OTP sent successfully.",
-      expiresAt: expiresAt,
-      resendCount: recentOTPs.length + 1,
-    });
-  } catch (error) {
-    console.error("Error resending OTP:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error. Please try again later.",
-    });
-  }
-};
-
 //------------------------End Forgott Password Part -------------------------
 
 module.exports = {
@@ -502,5 +421,4 @@ module.exports = {
   sendOtp,
   forgotPasswordOtpValidation,
   resetPassword,
-  resendOtp,
 };

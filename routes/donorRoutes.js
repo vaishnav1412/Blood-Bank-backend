@@ -9,38 +9,31 @@ const donationController =require("../controllers/donationController")
 const { authenticateToken } = require("../middleware/authentication");
 const upload = require("../config/multer-config");
 
-donorRoute.post("/doner-register", authController.donerRegistration);
-donorRoute.post("/verify-otp", authController.verifyOtp);
-donorRoute.post("/login", authController.donorLogin);
-donorRoute.post("/resend-register-otp", authController.resendRegisterOtp);
-donorRoute.post("/send-otp", authController.sendOtp); //forgot password
-donorRoute.post("/verify-forgot-otp",authController.forgotPasswordOtpValidation);
-donorRoute.post("/reset-password", authController.resetPassword);
-donorRoute.post("/resend-otp", authController.resendOtp);
-
-donorRoute.post("/contact",contactController.contactUs);
-donorRoute.post("/contact-private", authenticateToken, contactController.contactUs);
-donorRoute.get("/my-contacts-history", authenticateToken, contactController.getMyContactHistory);
-
+donorRoute.post("/auth/register", authController.donerRegistration);
+donorRoute.post("/auth/verify-otp", authController.verifyOtp);
+donorRoute.post("/auth/resend-otp", authController.resendRegisterOtp);
+donorRoute.post("/auth/login", authController.donorLogin);
+donorRoute.post("/auth/forgot-password/send-otp", authController.sendOtp); 
+donorRoute.post("/auth/forgot-password/verify-otp",authController.forgotPasswordOtpValidation);
+donorRoute.post("/auth/reset-password", authController.resetPassword);
+donorRoute.get("/camps", campController.getAllCamps);
+donorRoute.post("/camps/apply",campController.campApplication);
 donorRoute.post("/chatbot", chatController.chatbot);
-
-donorRoute.post("/applicationSubmission",campController.campApplication);
-donorRoute.get("/getAllCamps", campController.getAllCamps);
-
-donorRoute.get("/search-user", donationController.searchUser);
+donorRoute.post("/contact",contactController.contactUs);
+donorRoute.get("/donations/search", donationController.searchUser);
 
 donorRoute.use(authenticateToken)
-
-donorRoute.post("/healthStatus", profileController.updateHealthStatus);
-donorRoute.delete("/delete-account", profileController.deleteAccount);
-donorRoute.delete("/profile-photo", profileController.deleteProfilePhoto);
-donorRoute.get("/profile-details",profileController.getDonorProfile);
-donorRoute.put("/profile-photo",upload.single("profilePic"),profileController.updateProfilePhoto);
-donorRoute.put("/update-profile",profileController.updateProfile);
-donorRoute.post("/get-user-info",profileController.getData);
-
-donorRoute.get("/donation-history",donationController.getDonationHistory);
-donorRoute.delete("/delete-proof/:id",donationController.deleteDonationProof);
-donorRoute.post("/upload-proof",upload.single("image"), donationController.uploadDonationProof);
+donorRoute.get("/profile",profileController.getDonorProfile);
+donorRoute.put("/profile",profileController.updateProfile);
+donorRoute.put("/profile/photo",upload.single("profilePic"),profileController.updateProfilePhoto);
+donorRoute.delete("/profile/photo", profileController.deleteProfilePhoto);
+donorRoute.delete("/profile", profileController.deleteAccount);
+donorRoute.post("/profile/health-status", profileController.updateHealthStatus);
+donorRoute.post("/profile/me",profileController.getData);
+donorRoute.post("/contact/private", contactController.contactUs);
+donorRoute.get("/contact/history", contactController.getMyContactHistory);
+donorRoute.get("/donations/history",donationController.getDonationHistory);
+donorRoute.delete("/donations/proof/:id",donationController.deleteDonationProof);
+donorRoute.post("/donations/proof",upload.single("image"), donationController.uploadDonationProof);
 
 module.exports = donorRoute ;
