@@ -286,79 +286,8 @@ const resendOtp = async (req, res) => {
   }
 };
 
-const resendRegisterOtp = async (req, res) => {
-  try {
-    const { email } = req.body;
 
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: "Email is required",
-      });
-    }
 
-    // 1️⃣ Find user
-    const user = await DonerModel.findOne({ email });
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found. Please register again.",
-      });
-    }
-
-    // 2️⃣ Check if already verified
-    if (user.isVerified) {
-      return res.status(400).json({
-        success: false,
-        message: "Email is already verified. Please login.",
-      });
-    }
-
-    // 3️⃣ Minimum resend gap (60 seconds)
-    if (user.otpExpires) {
-      const timeSinceLastOtp = Date.now() - new Date(user.updatedAt).getTime();
-
-      if (timeSinceLastOtp < 60000) {
-        const waitTime = Math.ceil((60000 - timeSinceLastOtp) / 1000);
-
-        return res.status(429).json({
-          success: false,
-          message: `Please wait ${waitTime} seconds before requesting a new OTP.`,
-        });
-      }
-    }
-
-    // 4️⃣ Generate new 4-digit OTP
-    const newOtp = Math.floor(1000 + Math.random() * 9000).toString();
-
-    const otpExpires = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-
-    // 5️⃣ Update user document
-    user.otp = newOtp;
-    user.otpExpires = otpExpires;
-
-    await user.save();
-
-    // 6️⃣ Send email (register purpose)
-    await sendOtpEmail(email, newOtp, "register");
-
-    console.log(`Register OTP resent to ${email}`);
-
-    return res.json({
-      success: true,
-      message: "New OTP sent successfully.",
-      expiresAt: otpExpires,
-    });
-  } catch (error) {
-    console.error("Register resend OTP error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Server error. Please try again later.",
-    });
-  }
-};
 
 const subjectPriorityMap = {
   "Emergency Request": "urgent",
@@ -957,6 +886,5 @@ module.exports = {
   getDonationHistory,
   deleteDonationProof,
   chatbot,
-  getMyContactHistory,
-  resendRegisterOtp,
+  getMyContactHistory,  
 };

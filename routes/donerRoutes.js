@@ -1,5 +1,7 @@
 const express = require("express");
 const donerRoute = express.Router();
+const authController = require("../controllers/authController");
+
 const {
   deleteAccount,
   getData,
@@ -21,14 +23,12 @@ const {
   deleteDonationProof,
   chatbot,
   getMyContactHistory,
-  resendRegisterOtp,
+
 } = require("../controllers/donerController");
 
-const {
-  donerRegistration,
-  donorLogin,
-  verifyOtp,
-} = require("../controllers/authController");
+
+
+
 const { authenticateToken } = require("../middleware/authentication");
 const multer = require("multer");
 const storage = multer.memoryStorage();
@@ -41,10 +41,21 @@ const uploadDonation = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
 });
 
-donerRoute.post("/doner-register", donerRegistration);
-donerRoute.post("/resend-register-otp", resendRegisterOtp);
-donerRoute.post("/verify-otp", verifyOtp);
-donerRoute.post("/login", donorLogin);
+
+
+
+//--------------------auth controller-------------------
+
+donerRoute.post("/doner-register", authController.donerRegistration);
+donerRoute.post("/verify-otp", authController.verifyOtp);
+donerRoute.post("/login", authController.donorLogin);
+
+
+
+
+donerRoute.post("/resend-register-otp", authController.resendRegisterOtp);
+
+
 donerRoute.post("/send-otp", sendOtp); //for forgot pssword
 donerRoute.post("/verify-forgot-otp", forgotPasswordOtpValidation);
 donerRoute.post("/reset-password", resetPassword);
