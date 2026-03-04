@@ -1,208 +1,21 @@
 const DonerModel = require("../models/donerModel");
-const HealthStatusModel =require("../models/HealthStatusModel")
+const HealthStatusModel = require("../models/HealthStatusModel");
 const OTP = require("../models/otpModel");
-const ContactModel = require("../models/contactUsModel")
+const ContactModel = require("../models/contactUsModel");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const ApplicationModel = require("../models/bloodDriveModel")
-const DonationProof =require("../models/DonationProof") 
+const ApplicationModel = require("../models/bloodDriveModel");
+const DonationProof = require("../models/DonationProof");
 const multer = require("multer");
-const  cloudinary = require("../config/cloudinary-config")
-const axios= require("axios")
+const cloudinary = require("../config/cloudinary-config");
+const axios = require("axios");
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
- 
-
-
+const generateStrongPassword = require("../utilityFunctions/passwordGenerator");
 const {
   sendOtpEmail,
   sendPasswordEmail,
 } = require("../utilityFunctions/nodeMailer");
-
-const donerRegistration = async (req, res) => {
-  try {
-    const {
-      name,
-      gender,
-      bloodGroup,
-      dob,
-      weight,
-      platelet,
-      donationCount,
-      district,
-      taluk,
-      mobile,
-      whatsapp,
-      email,
-      reEmail,
-    } = req.body;
-
-    if (
-      !name ||
-      !gender ||
-      !bloodGroup ||
-      !dob ||
-      !weight ||
-      !platelet ||
-      donationCount === undefined ||
-      !district ||
-      !taluk ||
-      !mobile ||
-      !whatsapp ||
-      !email ||
-      !reEmail
-    ) {
-      return res.status(400).json({ message: "All fields are required" });
-    }
-
-    // 2. Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ message: "Invalid email format" });
-    }
-
-    // 3. Check email match
-    if (email !== reEmail) {
-      return res.status(400).json({ message: "Emails do not match" });
-    }
-
-    // 4. Validate mobile numbers
-    const phoneRegex = /^[0-9]{10}$/;
-    if (!phoneRegex.test(mobile)) {
-      return res.status(400).json({ message: "Invalid mobile number" });
-    }
-    if (!phoneRegex.test(whatsapp)) {
-      return res.status(400).json({ message: "Invalid WhatsApp number" });
-    }
-
-    // 5. Validate weight
-    if (isNaN(weight) || weight < 45) {
-      return res.status(400).json({ message: "Weight must be at least 45kg" });
-    }
-
-    // 6. Validate donation count
-    if (isNaN(donationCount) || donationCount < 0) {
-      return res.status(400).json({ message: "Invalid donation count" });
-    }
-
-let level = "New Donor";
-
-if (donationCount >= 10) {
-  level = "Life Saver";
-} else if (donationCount >= 5) {
-  level = "Hero Donor";
-} else if (donationCount >= 1) {
-  level = "Regular Donor";
-}
-
-
-
-    // 7. Check if user already exists
-    const existingDonor = await DonerModel.findOne({ email });
-    if (existingDonor) {
-      console.log("existing");
-
-      return res
-        .status(409)
-        .json({ message: "Donor already registered with this email" });
-    }
-    const otp = Math.floor(1000 + Math.random() * 9000).toString();
-    const otpExpires = new Date(Date.now() + 5 * 60 * 1000);
-    let purpose = "register";
-    await sendOtpEmail(email, otp, purpose);
-
-    // 9. Save donor to DB
-    const newDonor = new DonerModel({
-       name,
-  gender,
-  bloodGroup,
-  dob,
-  weight,
-  platelet,
-  donationCount,
-  level, // ✅ Save level here
-  district,
-  taluk,
-  mobile,
-  whatsapp,
-  email,
-  otp,
-  otpExpires,
-    });
-
-    await newDonor.save();
-    console.log("registerd ");
-
-    return res.status(200).json({
-      message: "OTP sent to email. Please verify to complete registration.",
-    });
-  } catch (error) {
-    console.error("Registration error:", error);
-    return res.status(500).json({ message: "Server error" });
-  }
-};
-
-const donorLogin = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    console.log(email, password);
-
-    // ✅ Basic validation
-    if (!email || !password) {
-      return res
-        .status(400)
-        .json({ message: "Email and password are required." });
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ message: "Invalid email format." });
-    }
-
-    if (password.length < 6) {
-      return res
-        .status(400)
-        .json({ message: "Password must be at least 6 characters long." });
-    }
-
-    // 🔍 Check if donor exists
-    const donor = await DonerModel.findOne({ email });
-    if (!donor) {
-      return res.status(401).json({ message: "Invalid email or password." });
-    }
-    console.log("hai..");
-    // 🔐 Compare passwords
-    const isMatch = await bcrypt.compare(password, donor.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: "Invalid email or password." });
-    }
-
-    // 🎫 Generate JWT
-    const token = jwt.sign(
-      { id: donor._id, email: donor.email },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" },
-    );
-    console.log("token", token);
-
-    // ✅ Success
-    return res.status(200).json({
-      message: "Login successful",
-      token,
-      donor: {
-        id: donor._id,
-        name: donor.name,
-        email: donor.email,
-        // add other public fields as needed
-      },
-    });
-  } catch (err) {
-    console.error("Login error:", err);
-    return res
-      .status(500)
-      .json({ message: "Server error, please try again later." });
-  }
-};
 
 const getData = async (req, res) => {
   try {
@@ -218,52 +31,6 @@ const getData = async (req, res) => {
   }
 };
 
-const verifyOtp = async (req, res) => {
-  const { email, otp } = req.body;
-
-  try {
-    const donor = await DonerModel.findOne({ email });
-
-    if (!donor) return res.status(404).json({ message: "User not found" });
-
-    // Check if OTP is expired
-    if (donor.otpExpires < Date.now()) {
-      return res.status(400).json({ message: "OTP expired" });
-    }
-
-    // Check if OTP matches
-    if (donor.otp !== otp) {
-      return res.status(400).json({ message: "Invalid OTP" });
-    }
-
-    // ✅ NEW LOGIC: Generate a random password
-    // Generates a password like "Life4829" (Easy to type/read)
-    const randomPart = Math.floor(1000 + Math.random() * 9000).toString();
-    const generatedPassword = `Life${randomPart}`;
-
-    // ✅ Hash the password before saving (Security Best Practice)
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(generatedPassword, salt);
-
-    // ✅ Send the password email (Must send PLAINTEXT password)
-    await sendPasswordEmail(email, generatedPassword);
-
-    // ✅ Update User Data
-    donor.otp = null;
-    donor.otpExpires = null;
-    donor.isVerified = true;
-    donor.password = hashedPassword; // Save the HASHED version
-
-    await donor.save();
-
-    return res.json({
-      message: "Email verified successfully. Password sent to your email.",
-    });
-  } catch (error) {
-    console.error("Error verifying OTP:", error);
-    res.status(500).json({ message: "Server error during verification" });
-  }
-};
 
 //forgott password otp generation ,sending
 
@@ -314,19 +81,18 @@ const sendOtp = async (req, res) => {
 
 const forgotPasswordOtpValidation = async (req, res) => {
   const { email, otp } = req.body;
-  console.log(email,otp);
-  
+  console.log(email, otp);
+
   try {
-   const otpRecord = await OTP.findOne({
+    const otpRecord = await OTP.findOne({
       email: email,
       otp: otp,
       purpose: "password_reset",
-      isUsed: false, 
+      isUsed: false,
       expiresAt: { $gt: new Date() }, // ✅ Correct MongoDB syntax
     });
 
-    console.log(otpRecord,"hhhh");
-    
+    console.log(otpRecord, "hhhh");
 
     if (!otpRecord) {
       return res.status(400).json({
@@ -334,11 +100,11 @@ const forgotPasswordOtpValidation = async (req, res) => {
         message: "Invalid or expired OTP",
       });
     }
-console.log("close");
+    console.log("close");
 
     // Mark OTP as used
-   otpRecord.isUsed = true; // Update the data in memory
-await otpRecord.save();  // Commit to database (triggers validation/hooks)
+    otpRecord.isUsed = true; // Update the data in memory
+    await otpRecord.save(); // Commit to database (triggers validation/hooks)
 
     res.json({
       success: true,
@@ -352,17 +118,16 @@ await otpRecord.save();  // Commit to database (triggers validation/hooks)
   }
 };
 
-const resetPassword = async(req,res) =>{
+const resetPassword = async (req, res) => {
   console.log("loading....");
 
-   const {email, newPassword, otp } = req.body;
+  const { email, newPassword, otp } = req.body;
 
-   console.log(req.body);
-   
+  console.log(req.body);
 
   try {
     // 1. Validation
-    if ( !email || !newPassword || !otp) {
+    if (!email || !newPassword || !otp) {
       return res.status(400).json({
         success: false,
         message: "All fields are required.",
@@ -398,9 +163,14 @@ const resetPassword = async(req,res) =>{
 
     // 5. Update User Password (Mongoose Syntax)
     // We use findByIdAndUpdate
-    await DonerModel.updateOne({email}, {$set:{
-      password: hashedPassword,
-    }});
+    await DonerModel.updateOne(
+      { email },
+      {
+        $set: {
+          password: hashedPassword,
+        },
+      },
+    );
 
     // 6. Clean up used OTP records (Mongoose Syntax)
     // We use deleteMany to remove all used reset attempts for this user
@@ -413,7 +183,6 @@ const resetPassword = async(req,res) =>{
       success: true,
       message: "Password has been reset successfully. Please login.",
     });
-
   } catch (error) {
     console.error("Reset Password Error:", error);
     return res.status(500).json({
@@ -421,104 +190,175 @@ const resetPassword = async(req,res) =>{
       message: "Server error, please try again later.",
     });
   }
-  
-}
+};
 
-const resendOtp = async(req,res)=>{
- const { email } = req.body;
+const resendOtp = async (req, res) => {
+  const { email } = req.body;
 
   try {
     // 1. Check if user exists
     const user = await DonerModel.findOne({ email });
-    
+
     if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        message: "Email not found. Please check and try again." 
+      return res.status(404).json({
+        success: false,
+        message: "Email not found. Please check and try again.",
       });
     }
-    
+
     // 2. Check rate limiting - prevent OTP flooding (Last 5 minutes)
     const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
-    
+
     const recentOTPs = await OTP.find({
       email: email,
-      purpose: 'password_reset',
-      createdAt: { $gt: fiveMinsAgo } // ✅ Mongoose syntax uses $gt
+      purpose: "password_reset",
+      createdAt: { $gt: fiveMinsAgo }, // ✅ Mongoose syntax uses $gt
     });
-    
+
     // Limit to 3 resends in 5 minutes
     if (recentOTPs.length >= 3) {
       return res.status(429).json({
         success: false,
-        message: "Too many OTP requests. Please wait 5 minutes before trying again."
+        message:
+          "Too many OTP requests. Please wait 5 minutes before trying again.",
       });
     }
-    
+
     // 3. Check last OTP sent time (minimum 30 seconds gap)
     // Sort by createdAt descending to get the latest one
     const lastOTP = await OTP.findOne({
       email: email,
-      purpose: 'password_reset'
+      purpose: "password_reset",
     }).sort({ createdAt: -1 });
-    
+
     if (lastOTP) {
       // Calculate time difference in milliseconds
       const timeSinceLastOTP = Date.now() - lastOTP.createdAt.getTime();
-      
-      if (timeSinceLastOTP < 30000) { // 30 seconds
+
+      if (timeSinceLastOTP < 30000) {
+        // 30 seconds
         const waitTime = Math.ceil((30000 - timeSinceLastOTP) / 1000);
         return res.status(429).json({
           success: false,
-          message: `Please wait ${waitTime} seconds before requesting a new OTP.`
+          message: `Please wait ${waitTime} seconds before requesting a new OTP.`,
         });
       }
-      
+
       // Mark previous OTP as expired explicitly (Optional, but good for cleanup)
       lastOTP.isExpired = true;
       await lastOTP.save(); // ✅ Mongoose save syntax
     }
-    
+
     // 4. Generate new 6-digit OTP
     const newOTP = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
-    
+
     // 5. Save new OTP to database
     await OTP.create({
       userId: user._id, // ✅ Mongoose uses _id
       email: email,
       otp: newOTP,
-      purpose: 'password_reset',
+      purpose: "password_reset",
       expiresAt: expiresAt,
       isResend: true,
-      resendCount: recentOTPs.length + 1
+      resendCount: recentOTPs.length + 1,
     });
-    
+
     // 6. Send OTP via email
     // Note: Make sure this function name matches your export
     await sendOtpEmail(email, newOTP, "password_reset");
-    
+
     // 7. Log the resend attempt
     console.log(`OTP resent to ${email} at ${new Date().toISOString()}`);
-    
+
     res.json({
       success: true,
       message: "New OTP sent successfully.",
       expiresAt: expiresAt,
-      resendCount: recentOTPs.length + 1
+      resendCount: recentOTPs.length + 1,
     });
-    
   } catch (error) {
     console.error("Error resending OTP:", error);
     res.status(500).json({
       success: false,
-      message: "Server error. Please try again later."
+      message: "Server error. Please try again later.",
     });
   }
-  
-  
-}
+};
 
+const resendRegisterOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
+    // 1️⃣ Find user
+    const user = await DonerModel.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found. Please register again.",
+      });
+    }
+
+    // 2️⃣ Check if already verified
+    if (user.isVerified) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is already verified. Please login.",
+      });
+    }
+
+    // 3️⃣ Minimum resend gap (60 seconds)
+    if (user.otpExpires) {
+      const timeSinceLastOtp = Date.now() - new Date(user.updatedAt).getTime();
+
+      if (timeSinceLastOtp < 60000) {
+        const waitTime = Math.ceil((60000 - timeSinceLastOtp) / 1000);
+
+        return res.status(429).json({
+          success: false,
+          message: `Please wait ${waitTime} seconds before requesting a new OTP.`,
+        });
+      }
+    }
+
+    // 4️⃣ Generate new 4-digit OTP
+    const newOtp = Math.floor(1000 + Math.random() * 9000).toString();
+
+    const otpExpires = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+    // 5️⃣ Update user document
+    user.otp = newOtp;
+    user.otpExpires = otpExpires;
+
+    await user.save();
+
+    // 6️⃣ Send email (register purpose)
+    await sendOtpEmail(email, newOtp, "register");
+
+    console.log(`Register OTP resent to ${email}`);
+
+    return res.json({
+      success: true,
+      message: "New OTP sent successfully.",
+      expiresAt: otpExpires,
+    });
+  } catch (error) {
+    console.error("Register resend OTP error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error. Please try again later.",
+    });
+  }
+};
 
 const subjectPriorityMap = {
   "Emergency Request": "urgent",
@@ -527,7 +367,7 @@ const subjectPriorityMap = {
   "Organize Blood Drive": "medium",
   "Volunteer Opportunity": "medium",
   "Become a Donor": "medium",
-  "Partnership": "medium",
+  Partnership: "medium",
   "General Inquiry": "low",
 };
 
@@ -546,8 +386,7 @@ const contactUs = async (req, res) => {
     const userId = req.user ? req.user.id : null;
 
     // Assign priority automatically
-    const priority =
-      subjectPriorityMap[subject] || "medium";
+    const priority = subjectPriorityMap[subject] || "medium";
 
     const newContact = new ContactModel({
       userId,
@@ -570,9 +409,7 @@ const contactUs = async (req, res) => {
     console.error("Contact Form Error:", error);
 
     if (error.name === "ValidationError") {
-      const messages = Object.values(error.errors).map(
-        (val) => val.message
-      );
+      const messages = Object.values(error.errors).map((val) => val.message);
       return res.status(400).json({
         success: false,
         message: messages.join(", "),
@@ -586,8 +423,8 @@ const contactUs = async (req, res) => {
   }
 };
 
-const campApplication = async(req,res)=>{
-   try {
+const campApplication = async (req, res) => {
+  try {
     // 1. Extract data from request body
     const data = req.body;
 
@@ -598,31 +435,32 @@ const campApplication = async(req,res)=>{
     // 3. Create new application instance
     const newApplication = new ApplicationModel({
       ...data,
-      applicationId: applicationId
+      applicationId: applicationId,
     });
 
     // 4. Save to Database
     await newApplication.save();
 
-    console.log(`New Blood Drive Application: ${applicationId} by ${data.organizationName}`);
+    console.log(
+      `New Blood Drive Application: ${applicationId} by ${data.organizationName}`,
+    );
 
     // 5. Send Success Response
     res.status(201).json({
       success: true,
-      message: 'Application submitted successfully',
+      message: "Application submitted successfully",
       applicationId: applicationId,
-      data: newApplication
+      data: newApplication,
     });
-
   } catch (error) {
-    console.error('Blood Drive Submission Error:', error);
+    console.error("Blood Drive Submission Error:", error);
 
     // Handle Mongoose Validation Errors
-    if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map(val => val.message);
+    if (error.name === "ValidationError") {
+      const messages = Object.values(error.errors).map((val) => val.message);
       return res.status(400).json({
         success: false,
-        message: messages.join(', ')
+        message: messages.join(", "),
       });
     }
 
@@ -630,54 +468,52 @@ const campApplication = async(req,res)=>{
     if (error.code === 11000) {
       return res.status(400).json({
         success: false,
-        message: 'Duplicate submission detected. Please try again.'
+        message: "Duplicate submission detected. Please try again.",
       });
     }
 
     // Handle General Server Errors
     res.status(500).json({
       success: false,
-      message: 'Server Error. Could not submit application.'
+      message: "Server Error. Could not submit application.",
     });
   }
-  
-}
+};
 
-const updateHealthStatus =async(req,res)=>{
-   try {
+const updateHealthStatus = async (req, res) => {
+  try {
     // 1. Get donor ID from the request object (attached by authMiddleware)
-    const donorId = req.user.id; 
-console.log(donorId);
+    const donorId = req.user.id;
+    console.log(donorId);
 
     // 2. Destructure data from request body
     const { weight, platelet, medicalConditions, allergies } = req.body;
 
     // 3. Validate (Basic)
     if (!weight || !platelet) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Weight and Platelet count are required" 
+      return res.status(400).json({
+        success: false,
+        message: "Weight and Platelet count are required",
       });
     }
-
 
     // 4. Update the Donor
     // { new: true } ensures we get the updated document back
     const healthData = await HealthStatusModel.findOneAndUpdate(
-      {_id: donorId }, 
+      { _id: donorId },
       {
         weight,
         platelet,
         lastHealthCheck: Date.now(),
         medicalConditions: medicalConditions || "None",
-        allergies: allergies || "None"
-      }, 
-      { 
-        upsert: true, 
-        new: true, 
+        allergies: allergies || "None",
+      },
+      {
+        upsert: true,
+        new: true,
         runValidators: true,
-        setDefaultsOnInsert: true 
-      }
+        setDefaultsOnInsert: true,
+      },
     );
 
     if (!healthData) {
@@ -688,26 +524,23 @@ console.log(donorId);
     res.status(200).json({
       success: true,
       message: "Health status updated successfully",
-      donor: healthData
+      donor: healthData,
     });
-
   } catch (error) {
     console.error("Health Update Error:", error);
     res.status(500).json({
       success: false,
-      message: "Server Error"
+      message: "Server Error",
     });
   }
-  
-  
-}
+};
 
 const getDonorProfile = async (req, res) => {
-  console.log('pppp');
+  console.log("pppp");
   try {
     // ✅ Get donorId from JWT
     const donorId = req.user.id;
-console.log(donorId);
+    console.log(donorId);
 
     // ✅ Fetch donor details
     const donor = await DonerModel.findById(donorId).select("-password");
@@ -720,7 +553,7 @@ console.log(donorId);
     }
 
     // ✅ Fetch health details
-    const health = await HealthStatusModel.findOne({ _id:donorId });
+    const health = await HealthStatusModel.findOne({ _id: donorId });
 
     // ✅ Send combined response
     res.status(200).json({
@@ -753,13 +586,11 @@ const updateProfilePhoto = async (req, res) => {
 
     // 3. Upload to Cloudinary
     const result = await cloudinary.uploader.upload(dataURI, {
-      public_id: publicId,     // <--- Force this name
-      overwrite: true,          // <--- If file exists, replace it
-      invalidate: true,         // <--- Clear CDN cache so old image disappears immediately
+      public_id: publicId, // <--- Force this name
+      overwrite: true, // <--- If file exists, replace it
+      invalidate: true, // <--- Clear CDN cache so old image disappears immediately
       folder: "user_profiles",
-      transformation: [
-        { width: 500, height: 500, crop: "fill" }
-      ]
+      transformation: [{ width: 500, height: 500, crop: "fill" }],
     });
 
     // 4. Update User in Database
@@ -767,22 +598,21 @@ const updateProfilePhoto = async (req, res) => {
     const updatedUser = await DonerModel.findByIdAndUpdate(
       req.user.id,
       { profilePic: result.secure_url },
-      { new: true }
+      { new: true },
     );
 
     res.status(200).json({
       success: true,
       message: "Profile photo updated successfully (Old photo replaced)",
-      user: updatedUser
+      user: updatedUser,
     });
-
   } catch (error) {
     console.error("Upload Error:", error);
     res.status(500).json({ message: "Error uploading photo" });
   }
 };
 
-const updateProfile = async(req,res)=>{
+const updateProfile = async (req, res) => {
   try {
     const donorId = req.user.id;
 
@@ -807,7 +637,7 @@ const updateProfile = async(req,res)=>{
         email: req.body.email,
         emergencyContact: req.body.emergencyContact,
       },
-      { new: true }
+      { new: true },
     );
 
     res.status(200).json({
@@ -818,12 +648,8 @@ const updateProfile = async(req,res)=>{
     console.log("Update Profile Error:", error);
     res.status(500).json({ message: "Server error" });
   }
-  
-}
- const uploadDonationProof = async (req, res) => {
-
-  
-  
+};
+const uploadDonationProof = async (req, res) => {
   try {
     // ✅ Check file
     if (!req.file) {
@@ -832,13 +658,8 @@ const updateProfile = async(req,res)=>{
 
     const donorId = req.user.id;
 
-    const {
-      donationDate,
-      donationCenter,
-      bloodGroup,
-      units,
-    } = req.body;
-console.log("photo upload...",req.body);
+    const { donationDate, donationCenter, bloodGroup, units } = req.body;
+    console.log("photo upload...", req.body);
     // ✅ Validate required fields
     if (!donationDate || !donationCenter) {
       return res.status(400).json({
@@ -848,8 +669,7 @@ console.log("photo upload...",req.body);
 
     // ✅ Convert buffer → Base64 (same as profile pic)
     const b64 = Buffer.from(req.file.buffer).toString("base64");
-    const dataURI =
-      "data:" + req.file.mimetype + ";base64," + b64;
+    const dataURI = "data:" + req.file.mimetype + ";base64," + b64;
 
     // ✅ Unique Public ID (DON'T overwrite)
     const publicId = `donation_proofs/${donorId}_${Date.now()}`;
@@ -859,11 +679,9 @@ console.log("photo upload...",req.body);
       public_id: publicId,
       folder: "donation_proofs",
 
-      transformation: [
-        { width: 800, height: 800, crop: "limit" },
-      ],
+      transformation: [{ width: 800, height: 800, crop: "limit" }],
     });
-console.log("test");
+    console.log("test");
 
     // ✅ Save Proof in MongoDB
     const newProof = new DonationProof({
@@ -876,14 +694,13 @@ console.log("test");
       status: "pending",
     });
 
-    const response = await newProof.save()
+    const response = await newProof.save();
 
     res.status(201).json({
       success: true,
       message: "Donation proof uploaded successfully!",
       proof: newProof,
     });
-
   } catch (error) {
     console.error("Donation Upload Error:", error);
     res.status(500).json({
@@ -892,11 +709,11 @@ console.log("test");
   }
 };
 
-
- const getAllCamps = async (req, res) => {
+const getAllCamps = async (req, res) => {
   try {
-
-    const camps = await ApplicationModel.find().sort({ createdAt: -1 }).limit(3);
+    const camps = await ApplicationModel.find()
+      .sort({ createdAt: -1 })
+      .limit(3);
 
     if (!camps || camps.length === 0) {
       return res.status(404).json({
@@ -923,7 +740,7 @@ console.log("test");
 const searchUser = async (req, res) => {
   try {
     const { district, taluk, bloodGroup } = req.query;
-console.log("working");
+    console.log("working");
 
     let filter = {};
 
@@ -955,7 +772,6 @@ const deleteAccount = async (req, res) => {
       success: true,
       message: "Account deleted successfully",
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -1001,7 +817,6 @@ const getDonationHistory = async (req, res) => {
   try {
     const donorId = req.user.id;
 
-
     if (!donorId) {
       return res.status(401).json({
         message: "Unauthorized access",
@@ -1009,8 +824,8 @@ const getDonationHistory = async (req, res) => {
     }
 
     // ✅ Find donor donation proofs (history)
-   const proofs = await DonationProof.find({ donorId })
-console.log(proofs);
+    const proofs = await DonationProof.find({ donorId });
+    console.log(proofs);
 
     if (!proofs) {
       return res.status(404).json({
@@ -1022,7 +837,6 @@ console.log(proofs);
       message: "Donation history fetched successfully",
       history: proofs || [],
     });
-
   } catch (error) {
     console.error("Fetch Donation History Error:", error);
 
@@ -1033,7 +847,7 @@ console.log(proofs);
   }
 };
 
-const deleteDonationProof = async(req,res)=>{
+const deleteDonationProof = async (req, res) => {
   try {
     const donorId = req.user.id;
     const proofId = req.params.id;
@@ -1069,8 +883,7 @@ const deleteDonationProof = async(req,res)=>{
       message: "Server error while deleting donation proof",
     });
   }
-  
-}
+};
 
 const chatbot = async (req, res) => {
   try {
@@ -1099,14 +912,13 @@ const chatbot = async (req, res) => {
   }
 };
 
-
 const getMyContactHistory = async (req, res) => {
   try {
     const userId = req.user.id; // from auth middleware
 
     const contacts = await ContactModel.find({
       userId,
-      isDeleted: { $ne: true }
+      isDeleted: { $ne: true },
     })
       .sort({ createdAt: -1 })
       .select("-__v")
@@ -1114,32 +926,19 @@ const getMyContactHistory = async (req, res) => {
 
     res.json({
       success: true,
-      data: contacts
+      data: contacts,
     });
-
   } catch (error) {
     console.error("Get contact history error:", error);
     res.status(500).json({
       success: false,
-      message: "Failed to fetch contact history"
+      message: "Failed to fetch contact history",
     });
   }
 };
 
-
-
-
-
-
-
-
-
-
 module.exports = {
-  donorLogin,
-  donerRegistration,
   getData,
-  verifyOtp,
   sendOtp,
   forgotPasswordOtpValidation,
   resetPassword,
@@ -1159,4 +958,5 @@ module.exports = {
   deleteDonationProof,
   chatbot,
   getMyContactHistory,
+  resendRegisterOtp,
 };

@@ -1,11 +1,8 @@
 const express = require("express");
 const donerRoute = express.Router();
 const {
-  donorLogin,
   deleteAccount,
-  donerRegistration,
   getData,
-  verifyOtp,
   sendOtp,
   forgotPasswordOtpValidation,
   resetPassword,
@@ -23,8 +20,15 @@ const {
   getDonationHistory,
   deleteDonationProof,
   chatbot,
-  getMyContactHistory
+  getMyContactHistory,
+  resendRegisterOtp,
 } = require("../controllers/donerController");
+
+const {
+  donerRegistration,
+  donorLogin,
+  verifyOtp,
+} = require("../controllers/authController");
 const { authenticateToken } = require("../middleware/authentication");
 const multer = require("multer");
 const storage = multer.memoryStorage();
@@ -38,6 +42,7 @@ const uploadDonation = multer({
 });
 
 donerRoute.post("/doner-register", donerRegistration);
+donerRoute.post("/resend-register-otp", resendRegisterOtp);
 donerRoute.post("/verify-otp", verifyOtp);
 donerRoute.post("/login", donorLogin);
 donerRoute.post("/send-otp", sendOtp); //for forgot pssword
@@ -46,7 +51,7 @@ donerRoute.post("/reset-password", resetPassword);
 donerRoute.post("/resend-otp", resendOtp);
 donerRoute.post("/contact", contactUs);
 
-donerRoute.post("/contact-private",authenticateToken,contactUs);
+donerRoute.post("/contact-private", authenticateToken, contactUs);
 
 donerRoute.post("/applicationSubmission", campApplication);
 donerRoute.post("/healthStatus", authenticateToken, updateHealthStatus);

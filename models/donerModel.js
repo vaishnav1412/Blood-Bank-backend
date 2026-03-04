@@ -98,20 +98,40 @@ const donerSchema = new mongoose.Schema(
       type: Date,
       required: false,
     },
-
     // ✅ Verification Status
     isVerified: {
       type: Boolean,
       default: false,
     },
-    isBlocked:{
-      type:Boolean,
-      default:false
+
+    loginAttempts: {
+      type: Number,
+      default: 0,
+    },
+
+    lockUntil: {
+      type: Date,
+      default: null,
+    },
+
+    tempBlockCount: {
+      type: Number,
+      default: 0,
+    },
+
+    permanentBlock: {
+      type: Boolean,
+      default: false,
+    },
+    
+    isBlocked: {
+      type: Boolean,
+      default: false,
     },
     isAdmin: {
-    type: Number,
-    default: 0 
-  },
+      type: Number,
+      default: 0,
+    },
     profilePic: {
       type: String, // Cloudinary image URL
       default: "",
