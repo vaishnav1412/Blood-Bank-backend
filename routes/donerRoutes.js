@@ -1,15 +1,14 @@
 const express = require("express");
 const donerRoute = express.Router();
 const authController = require("../controllers/authController");
+const contactController = require("../controllers/contactController")
+const { authenticateToken } = require("../middleware/authentication");
+const upload = require("../config/multer-config");
 
 const {
   deleteAccount,
   getData,
-  sendOtp,
-  forgotPasswordOtpValidation,
-  resetPassword,
-  resendOtp,
-  contactUs,
+  
   campApplication,
   updateHealthStatus,
   getDonorProfile,
@@ -23,46 +22,29 @@ const {
   deleteDonationProof,
   chatbot,
   getMyContactHistory,
-
 } = require("../controllers/donerController");
-
-
-
-
-const { authenticateToken } = require("../middleware/authentication");
-const multer = require("multer");
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // Limit to 5MB
-});
-const uploadDonation = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-});
-
-
-
 
 //--------------------auth controller-------------------
 
 donerRoute.post("/doner-register", authController.donerRegistration);
 donerRoute.post("/verify-otp", authController.verifyOtp);
 donerRoute.post("/login", authController.donorLogin);
-
-
-
-
 donerRoute.post("/resend-register-otp", authController.resendRegisterOtp);
+donerRoute.post("/send-otp", authController.sendOtp); //forgot password
+donerRoute.post("/verify-forgot-otp",authController.forgotPasswordOtpValidation);
+donerRoute.post("/reset-password", authController.resetPassword);
+donerRoute.post("/resend-otp", authController.resendOtp);
+
+//-----------------------End AuthController-------------------------
+
+//-----------------------Contact Controller-------------------------
+
+donerRoute.post("/contact",contactController.contactUs);
+donerRoute.post("/contact-private", authenticateToken, contactController.contactUs);
+
+//-----------------------End Contact Controller----------------------
 
 
-donerRoute.post("/send-otp", sendOtp); //for forgot pssword
-donerRoute.post("/verify-forgot-otp", forgotPasswordOtpValidation);
-donerRoute.post("/reset-password", resetPassword);
-donerRoute.post("/resend-otp", resendOtp);
-donerRoute.post("/contact", contactUs);
-
-donerRoute.post("/contact-private", authenticateToken, contactUs);
 
 donerRoute.post("/applicationSubmission", campApplication);
 donerRoute.post("/healthStatus", authenticateToken, updateHealthStatus);
@@ -71,9 +53,7 @@ donerRoute.get("/search-user", searchUser);
 donerRoute.delete("/delete-account", authenticateToken, deleteAccount);
 donerRoute.delete("/profile-photo", authenticateToken, deleteProfilePhoto);
 donerRoute.get("/donation-history", authenticateToken, getDonationHistory);
-
 donerRoute.delete("/delete-proof/:id", authenticateToken, deleteDonationProof);
-
 donerRoute.get("/profile-details", authenticateToken, getDonorProfile);
 donerRoute.put(
   "/profile-photo",
@@ -85,7 +65,7 @@ donerRoute.put("/update-profile", authenticateToken, updateProfile);
 donerRoute.post(
   "/upload-proof",
   authenticateToken,
-  uploadDonation.single("image"),
+  upload.single("image"),
   uploadDonationProof,
 );
 donerRoute.post("/get-user-info", authenticateToken, getData);
