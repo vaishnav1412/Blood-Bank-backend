@@ -10,7 +10,7 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: true }));
 app.use(require("cors")());
 
-app.use("/doner",require("./routes/donerRoutes"))
+app.use("/doner",require("./routes/donorRoutes"))
 app.use("/admin",require("./routes/adminRoutes"))
 
 
