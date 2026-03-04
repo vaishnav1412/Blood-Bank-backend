@@ -1,32 +1,28 @@
-const ApplicationModel = require("../models/bloodDriveModel");
+const campService = require("../services/campService");
+
 const campApplication = async (req, res) => {
   try {
     const data = req.body;
 
-    const applicationId = `BD-${Date.now().toString().slice(-6)}`;
-
-    const newApplication = new ApplicationModel({
-      ...data,
-      applicationId: applicationId,
-    });
-
-    await newApplication.save();
+    const result = await campService.createCampApplication(data);
 
     console.log(
-      `New Blood Drive Application: ${applicationId} by ${data.organizationName}`,
+      `New Blood Drive Application: ${result.applicationId} by ${data.organizationName}`
     );
 
     res.status(201).json({
       success: true,
       message: "Application submitted successfully",
-      applicationId: applicationId,
-      data: newApplication,
+      applicationId: result.applicationId,
+      data: result.data,
     });
+
   } catch (error) {
     console.error("Blood Drive Submission Error:", error);
 
     if (error.name === "ValidationError") {
       const messages = Object.values(error.errors).map((val) => val.message);
+
       return res.status(400).json({
         success: false,
         message: messages.join(", "),
@@ -49,9 +45,7 @@ const campApplication = async (req, res) => {
 
 const getAllCamps = async (req, res) => {
   try {
-    const camps = await ApplicationModel.find()
-      .sort({ createdAt: -1 })
-      .limit(3);
+    const camps = await campService.fetchAllCamps();
 
     if (!camps || camps.length === 0) {
       return res.status(404).json({
@@ -66,8 +60,10 @@ const getAllCamps = async (req, res) => {
       total: camps.length,
       camps,
     });
+
   } catch (error) {
     console.error("Error fetching camps:", error);
+
     res.status(500).json({
       success: false,
       message: "Server error while fetching camp requests",
@@ -75,8 +71,7 @@ const getAllCamps = async (req, res) => {
   }
 };
 
-
-module.exports={
-    campApplication,
-    getAllCamps
-}
+module.exports = {
+  campApplication,
+  getAllCamps,
+};
