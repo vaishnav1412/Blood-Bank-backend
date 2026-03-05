@@ -1,314 +1,186 @@
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const DonerModel = require("../models/donerModel");
-const OTP = require("../models/otpModel");
-const generateStrongPassword = require("../utilityFunctions/passwordGenerator");
-const {
-  sendOtpEmail,
-  sendPasswordEmail,
-} = require("../utilityFunctions/nodeMailer");
+const authService = require("../services/authService");
 
-//---------------------Registration Part--------------------------
 
+// ---------------- REGISTER ----------------
 const donerRegistration = async (req, res) => {
   try {
-    const {
-      name,
-      gender,
-      bloodGroup,
-      dob,
-      weight,
-      platelet,
-      donationCount,
-      district,
-      taluk,
-      mobile,
-      whatsapp,
-      email,
-      reEmail,
-    } = req.body;
-    if (
-      !name ||
-      !gender ||
-      !bloodGroup ||
-      !dob ||
-      !weight ||
-      donationCount === undefined ||
-      !district ||
-      !taluk ||
-      !mobile ||
-      !whatsapp ||
-      !email ||
-      !reEmail
-    ) {
-      return res.status(400).json({ message: "All fields are required" });
-    }
+    const result = await authService.registerDonor(req.body);
 
-    if (email !== reEmail) {
-      return res.status(400).json({ message: "Emails do not match" });
-    }
+    res.status(200).json({
+      success: true,
+      message: result.message,
+    });
 
-    const phoneRegex = /^[0-9]{10}$/;
-    if (!phoneRegex.test(mobile) || !phoneRegex.test(whatsapp)) {
-      return res.status(400).json({ message: "Invalid phone number" });
-    }
+  } catch (error) {
 
-    if (weight < 45) {
-      return res.status(400).json({ message: "Weight must be at least 45kg" });
-    }
-
-    let level = "New Donor";
-    if (donationCount >= 10) level = "Life Saver";
-    else if (donationCount >= 5) level = "Hero Donor";
-    else if (donationCount >= 1) level = "Regular Donor";
-
-    const existingDonor = await DonerModel.findOne({ email });
-
-    if (existingDonor) {
-      if (existingDonor.isVerified) {
-        return res.status(409).json({
-          message: "Donor already registered and verified. Please login.",
-        });
-      }
-
-      const otp = Math.floor(1000 + Math.random() * 9000).toString();
-      const otpExpires = new Date(Date.now() + 5 * 60 * 1000);
-      existingDonor.otp = otp;
-      existingDonor.otpExpires = otpExpires;
-      await existingDonor.save();
-      await sendOtpEmail(email, otp, "register");
-      return res.status(200).json({
-        message: "OTP resent. Please verify your email.",
+    if (error.message === "ALREADY_REGISTERED") {
+      return res.status(409).json({
+        success: false,
+        message: "Donor already registered and verified. Please login.",
       });
     }
-    const otp = Math.floor(1000 + Math.random() * 9000).toString();
-    const otpExpires = new Date(Date.now() + 5 * 60 * 1000);
-    const newDonor = new DonerModel({
-      name,
-      gender,
-      bloodGroup,
-      dob,
-      weight,
-      platelet,
-      donationCount,
-      level,
-      district,
-      taluk,
-      mobile,
-      whatsapp,
-      email,
-      otp,
-      otpExpires,
-      isVerified: false,
+
+    console.error("Registration Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error during registration",
     });
-    await newDonor.save();
-    await sendOtpEmail(email, otp, "register");
-    return res.status(200).json({
-      message: "OTP sent to email. Please verify to complete registration.",
-    });
-  } catch (error) {
-    console.error("Registration error:", error);
-    return res.status(500).json({ message: "Server error" });
   }
 };
 
+
+// ---------------- VERIFY REGISTER OTP ----------------
 const verifyOtp = async (req, res) => {
-  const { email, otp } = req.body;
   try {
-    const donor = await DonerModel.findOne({ email });
-    if (!donor) return res.status(404).json({ message: "User not found" });
-    if (donor.otpExpires < Date.now()) {
-      return res.status(400).json({ message: "OTP expired" });
-    }
-    if (donor.otp !== otp) {
-      return res.status(400).json({ message: "Invalid OTP" });
-    }
-    const generatedPassword = generateStrongPassword(12);
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(generatedPassword, salt);
-    await sendPasswordEmail(email, generatedPassword);
-    donor.otp = null;
-    donor.otpExpires = null;
-    donor.isVerified = true;
-    donor.password = hashedPassword;
-    await donor.save();
-    return res.json({
+    const { email, otp } = req.body;
+
+    await authService.verifyRegistrationOtp(email, otp);
+
+    res.status(200).json({
+      success: true,
       message: "Email verified successfully. Password sent to your email.",
     });
+
   } catch (error) {
-    console.error("Error verifying OTP:", error);
-    res.status(500).json({ message: "Server error during verification" });
+
+    if (error.message === "USER_NOT_FOUND") {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (error.message === "OTP_EXPIRED") {
+      return res.status(400).json({ message: "OTP expired" });
+    }
+
+    if (error.message === "INVALID_OTP") {
+      return res.status(400).json({ message: "Invalid OTP" });
+    }
+
+    console.error("OTP Verification Error:", error);
+
+    res.status(500).json({
+      message: "Server error during verification",
+    });
   }
 };
 
+
+// ---------------- RESEND REGISTER OTP ----------------
 const resendRegisterOtp = async (req, res) => {
   try {
     const { email } = req.body;
 
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: "Email is required",
-      });
-    }
+    await authService.resendRegisterOtp(email);
 
-    const user = await DonerModel.findOne({ email });
+    res.json({
+      success: true,
+      message: "New OTP sent successfully",
+    });
 
-    if (!user) {
+  } catch (error) {
+
+    if (error.message === "USER_NOT_FOUND") {
       return res.status(404).json({
         success: false,
         message: "User not found. Please register again.",
       });
     }
 
-    if (user.isVerified) {
+    if (error.message === "EMAIL_ALREADY_VERIFIED") {
       return res.status(400).json({
         success: false,
-        message: "Email is already verified. Please login.",
+        message: "Email already verified. Please login.",
       });
     }
 
-    if (user.otpExpires) {
-      const timeSinceLastOtp = Date.now() - new Date(user.updatedAt).getTime();
-
-      if (timeSinceLastOtp < 60000) {
-        const waitTime = Math.ceil((60000 - timeSinceLastOtp) / 1000);
-
-        return res.status(429).json({
-          success: false,
-          message: `Please wait ${waitTime} seconds before requesting a new OTP.`,
-        });
-      }
+    if (error.message === "OTP_RATE_LIMIT") {
+      return res.status(429).json({
+        success: false,
+        message: "Please wait before requesting a new OTP.",
+      });
     }
 
-    const newOtp = Math.floor(1000 + Math.random() * 9000).toString();
+    console.error("Resend OTP Error:", error);
 
-    const otpExpires = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-
-    user.otp = newOtp;
-    user.otpExpires = otpExpires;
-
-    await user.save();
-
-    await sendOtpEmail(email, newOtp, "register");
-
-    console.log(`Register OTP resent to ${email}`);
-
-    return res.json({
-      success: true,
-      message: "New OTP sent successfully.",
-      expiresAt: otpExpires,
-    });
-  } catch (error) {
-    console.error("Register resend OTP error:", error);
-
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
-      message: "Server error. Please try again later.",
+      message: "Server error",
     });
   }
 };
 
-//---------------------End Registration Part---------------------------
 
-//---------------------Login Part --------------------------------------
-
+// ---------------- LOGIN ----------------
 const donorLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password required." });
-    }
-    const donor = await DonerModel.findOne({ email }).select("+password");
-    if (!donor) {
-      return res.status(401).json({ message: "Invalid email or password." });
-    }
-    if (donor.isBlocked) {
-      return res.status(403).json({
-        message:
-          "Your account has been blocked by admin. Please contact support.",
+
+    const token = await authService.loginDonor(email, password);
+
+    res.status(200).json({
+      success: true,
+      message: "Login successful",
+      token,
+    });
+
+  } catch (error) {
+
+    if (error.message === "INVALID_CREDENTIALS") {
+      return res.status(401).json({
+        message: "Invalid email or password",
       });
     }
-    if (donor.permanentBlock) {
+
+    if (error.message === "BLOCKED") {
+      return res.status(403).json({
+        message: "Your account has been blocked by admin.",
+      });
+    }
+
+    if (error.message === "PERMANENT_BLOCK") {
       return res.status(403).json({
         message: "Account permanently blocked. Contact support.",
       });
     }
-    if (donor.lockUntil && donor.lockUntil > Date.now()) {
+
+    if (error.message === "TEMP_LOCK") {
       return res.status(403).json({
         message: "Account temporarily locked. Try again later.",
       });
     }
-    const isMatch = await bcrypt.compare(password, donor.password);
-    if (!isMatch) {
-      donor.loginAttempts += 1;
-      if (donor.loginAttempts >= 5) {
-        donor.tempBlockCount += 1;
-        if (donor.tempBlockCount >= 2) {
-          donor.permanentBlock = true;
-        } else {
-          donor.lockUntil = Date.now() + 10 * 60 * 1000;
-        }
-        donor.loginAttempts = 0;
-      }
-      await donor.save();
-      return res.status(401).json({
-        message: "Invalid email or password.",
-      });
-    }
-    donor.loginAttempts = 0;
-    donor.lockUntil = null;
-    await donor.save();
-    const token = jwt.sign(
-      { id: donor._id, email: donor.email, role: donor.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" },
-    );
-    return res.status(200).json({
-      message: "Login successful",
-      token,
+
+    console.error("Login Error:", error);
+
+    res.status(500).json({
+      message: "Server error",
     });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: "Server error" });
   }
 };
 
-//---------------------End Login Part----------------------------------
 
-//---------------------Forgot Password Part-----------------------------
-
+// ---------------- SEND FORGOT PASSWORD OTP ----------------
 const sendOtp = async (req, res) => {
-  const { email, purpose } = req.body;
-
   try {
-    const user = await DonerModel.findOne({ email });
+    const { email, purpose } = req.body;
 
-    if (!user) {
+    await authService.sendPasswordResetOtp(email, purpose);
+
+    res.json({
+      success: true,
+      message: "OTP sent successfully",
+    });
+
+  } catch (error) {
+
+    if (error.message === "USER_NOT_FOUND") {
       return res.status(404).json({
         success: false,
         message: "Email not found",
       });
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    console.error("Send OTP Error:", error);
 
-    await OTP.create({
-      email: email,
-      otp: otp,
-      purpose: purpose,
-      expiresAt: expiresAt,
-    });
-
-    await sendOtpEmail(email, otp, purpose);
-
-    res.json({
-      success: true,
-      message: "OTP sent successfully",
-    });
-  } catch (error) {
-    console.log("OTP Save Error:", error);
     res.status(500).json({
       success: false,
       message: "Server error",
@@ -316,33 +188,30 @@ const sendOtp = async (req, res) => {
   }
 };
 
-const forgotPasswordOtpValidation = async (req, res) => {
-  const { email, otp } = req.body;
 
+// ---------------- VALIDATE FORGOT PASSWORD OTP ----------------
+const forgotPasswordOtpValidation = async (req, res) => {
   try {
-    const otpRecord = await OTP.findOne({
-      email: email,
-      otp: otp,
-      purpose: "password_reset",
-      isUsed: false,
-      expiresAt: { $gt: new Date() },
+    const { email, otp } = req.body;
+
+    await authService.validatePasswordResetOtp(email, otp);
+
+    res.json({
+      success: true,
+      message: "OTP verified successfully",
     });
 
-    if (!otpRecord) {
+  } catch (error) {
+
+    if (error.message === "INVALID_OTP") {
       return res.status(400).json({
         success: false,
         message: "Invalid or expired OTP",
       });
     }
 
-    otpRecord.isUsed = true;
-    await otpRecord.save();
+    console.error("OTP Validation Error:", error);
 
-    res.json({
-      success: true,
-      userId: otpRecord.userId,
-    });
-  } catch (error) {
     res.status(500).json({
       success: false,
       message: "Server error",
@@ -350,74 +219,43 @@ const forgotPasswordOtpValidation = async (req, res) => {
   }
 };
 
+
+// ---------------- RESET PASSWORD ----------------
 const resetPassword = async (req, res) => {
-  const { email, newPassword, otp } = req.body;
-
   try {
-    if (!email || !newPassword || !otp) {
-      return res.status(400).json({
-        success: false,
-        message: "All fields are required.",
-      });
-    }
+    const { email, newPassword, otp } = req.body;
 
-    if (newPassword.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: "Password must be at least 6 characters long.",
-      });
-    }
+    await authService.resetUserPassword(email, otp, newPassword);
 
-    const otpRecord = await OTP.findOne({
-      email: email,
-      otp: otp,
-      purpose: "password_reset",
-      isUsed: true,
+    res.status(200).json({
+      success: true,
+      message: "Password has been reset successfully. Please login.",
     });
 
-    if (!otpRecord) {
+  } catch (error) {
+
+    if (error.message === "INVALID_SESSION") {
       return res.status(400).json({
         success: false,
         message: "Invalid session or OTP. Please restart the process.",
       });
     }
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    await DonerModel.updateOne(
-      { email },
-      {
-        $set: {
-          password: hashedPassword,
-        },
-      },
-    );
-
-    await OTP.deleteMany({
-      email: email,
-      purpose: "password_reset",
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: "Password has been reset successfully. Please login.",
-    });
-  } catch (error) {
     console.error("Reset Password Error:", error);
-    return res.status(500).json({
+
+    res.status(500).json({
       success: false,
-      message: "Server error, please try again later.",
+      message: "Server error",
     });
   }
 };
 
-//------------------------End Forgott Password Part -------------------------
 
 module.exports = {
   donerRegistration,
-  donorLogin,
   verifyOtp,
   resendRegisterOtp,
+  donorLogin,
   sendOtp,
   forgotPasswordOtpValidation,
   resetPassword,
