@@ -192,6 +192,8 @@ const sendOtp = async (req, res) => {
 // ---------------- VALIDATE FORGOT PASSWORD OTP ----------------
 const forgotPasswordOtpValidation = async (req, res) => {
   try {
+    console.log("djhfgdjfg");
+    
     const { email, otp } = req.body;
 
     await authService.validatePasswordResetOtp(email, otp);

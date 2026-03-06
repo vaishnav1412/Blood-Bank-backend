@@ -20,6 +20,7 @@ donorRoute.post("/auth/login", authController.donorLogin);
 
 donorRoute.post("/auth/forgot-password/send-otp", authController.sendOtp);
 donorRoute.post("/auth/forgot-password/verify-otp", authController.forgotPasswordOtpValidation);
+
 donorRoute.post("/auth/reset-password", authController.resetPassword);
 
 
@@ -56,7 +57,7 @@ donorRoute.get("/contact/history", contactController.getMyContactHistory);
 // DONATIONS
 donorRoute.get("/donations/history", donationController.getDonationHistory);
 donorRoute.post("/donations/proof", upload.single("image"), donationController.uploadDonationProof);
-donorRoute.delete("/donations/proof/:id", donationController.deleteDonationProof);
+donorRoute.delete("/donations/proof:id", donationController.deleteDonationProof);
 
 
 module.exports = donorRoute;

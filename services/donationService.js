@@ -7,7 +7,7 @@ const searchDonors = async (filters) => {
 };
 
 const fetchDonationHistory = async (donorId) => {
-  return await DonationProof.find({ donorId });
+  return await DonationProof.find({ donorId }).sort({donationDate:-1});
 };
 
 const removeDonationProof = async (donorId, proofId) => {

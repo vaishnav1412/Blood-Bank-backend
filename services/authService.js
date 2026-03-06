@@ -156,10 +156,33 @@ const resetUserPassword = async (email, otp, newPassword) => {
   return true;
 };
 
+const validatePasswordResetOtp = async (email, otp) => {
+
+  const otpRecord = await OTP.findOne({
+    email: email,
+    otp: otp,
+    purpose: "password_reset",
+    isUsed: false,
+    expiresAt: { $gt: new Date() }
+  });
+
+  if (!otpRecord) {
+    throw new AppError("Invalid or expired OTP", 400);
+  }
+
+  // mark OTP as used
+  otpRecord.isUsed = true;
+  await otpRecord.save();
+
+  return true;
+};
+
+
 module.exports = {
   registerDonor,
   verifyRegistrationOtp,
   loginDonor,
   sendPasswordResetOtp,
-  resetUserPassword
+  resetUserPassword,
+  validatePasswordResetOtp
 };

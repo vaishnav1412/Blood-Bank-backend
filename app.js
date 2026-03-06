@@ -11,7 +11,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 app.use(helmet());
 app.use(morgan("dev"));
-app.use("/donor", require("./routes/donorRoutes"));
+app.use("/api/v1/donor", require("./routes/donorRoutes"));
 app.use("/admin", require("./routes/adminRoutes"));
 
 app.use((err, req, res, next) => {

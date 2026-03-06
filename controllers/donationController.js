@@ -28,7 +28,7 @@ const getDonationHistory = async (req, res) => {
   try {
     const donorId = req.user.id;
 
-    const history = await donationService.fetchDonationHistory(donorId);
+    const history = (await donationService.fetchDonationHistory(donorId))
 
     res.status(200).json({
       message: "Donation history fetched successfully",
@@ -46,6 +46,9 @@ const getDonationHistory = async (req, res) => {
 
 const deleteDonationProof = async (req, res) => {
   try {
+
+    console.log('ghgfhgf');
+    
     const donorId = req.user.id;
     const proofId = req.params.id;
 
