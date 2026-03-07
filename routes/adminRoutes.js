@@ -18,7 +18,9 @@ const {
   updateContactStatus,
   replyToContact,
   getAllDonations,
-  updateDonationStatus
+  updateDonationStatus,
+  getAllBloodDriveApplications,
+  updateApplicationStatus
  
 
 } = require("../controllers/adminController");
@@ -54,5 +56,6 @@ adminRoute.patch("/update-contact-status/:id",updateContactStatus)
 adminRoute.put("/contact-reply/:id",authenticateTokenAdmin,replyToContact);
 adminRoute.get('/donations',getAllDonations)
 adminRoute.put("/donations/:id", updateDonationStatus);
-
+adminRoute.get("/blood-drive-applications", getAllBloodDriveApplications);
+adminRoute.put("/blood-drive-applications/:id", updateApplicationStatus);
 module.exports = adminRoute;

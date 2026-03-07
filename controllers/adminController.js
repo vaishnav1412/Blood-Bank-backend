@@ -861,7 +861,7 @@ const updateDonationStatus = async (req, res) => {
     donation.adminRemarks = adminRemarks || "";
 
     await donation.save();
-console.log("working");
+
 
     // ✅ If donation verified update donor latest donation date
     if (status === "verified") {
@@ -896,6 +896,63 @@ console.log("working");
   }
 };
 
+const getAllBloodDriveApplications = async (req, res) => {
+  try {
+    const applications = await CampModel.find()
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      applications,
+    });
+
+  } catch (error) {
+    console.error("Error fetching applications:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch applications",
+    });
+  }
+};
+
+const updateApplicationStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log("the id is :",id);
+    
+    const { status, notes } = req.body;
+
+    const application = await CampModel.findById(id);
+
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        message: "Application not found"
+      });
+    }
+
+    application.status = status;
+    application.notes = notes || "";
+    application.reviewedAt = new Date();
+
+    await application.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Application status updated",
+      application
+    });
+
+  } catch (error) {
+    console.error("Error updating application:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error"
+    });
+  }
+};
+
 
 
 module.exports = {
@@ -916,5 +973,7 @@ module.exports = {
   updateContactStatus,
   replyToContact,
   getAllDonations,
-  updateDonationStatus
+  updateDonationStatus,
+  getAllBloodDriveApplications,
+  updateApplicationStatus,
 };
