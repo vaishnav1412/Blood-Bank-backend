@@ -44,12 +44,12 @@ const donerSchema = new mongoose.Schema(
 
     donationCount: {
       type: Number,
-      required: true,
+      required: false,
       min: 0,
     },
     latestDonatedDate: {
       type: Date,
-      required: false,
+      required: true,
       default: null,
     },
 

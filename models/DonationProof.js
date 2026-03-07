@@ -4,7 +4,7 @@ const donationProofSchema = new mongoose.Schema(
   {
     donorId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Donor",
+      ref: "Doner",
       required: true,
     },
 

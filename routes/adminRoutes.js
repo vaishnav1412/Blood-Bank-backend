@@ -17,6 +17,8 @@ const {
   deleteContacts,
   updateContactStatus,
   replyToContact,
+  getAllDonations,
+  updateDonationStatus
  
 
 } = require("../controllers/adminController");
@@ -50,6 +52,7 @@ adminRoute.delete("/delete-contacts", deleteContacts);
 adminRoute.delete("/delete-gallery/:id", deleteGalleryItem);
 adminRoute.patch("/update-contact-status/:id",updateContactStatus)
 adminRoute.put("/contact-reply/:id",authenticateTokenAdmin,replyToContact);
-
+adminRoute.get('/donations',getAllDonations)
+adminRoute.put("/donations/:id", updateDonationStatus);
 
 module.exports = adminRoute;

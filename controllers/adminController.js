@@ -8,7 +8,8 @@ const cloudinary = require("../config/cloudinary-config");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 
-const {sendReplyEmail } =require("../utilityFunctions/nodeMailer")
+const {sendReplyEmail } =require("../utilityFunctions/nodeMailer");
+const DonationProof = require("../models/DonationProof");
 
 
 const adminLogin = async (req, res) => {
@@ -825,6 +826,75 @@ const replyToContact = async (req, res) => {
   }
 };
 
+const getAllDonations = async (req, res) => {
+
+  console.log("hi");
+  
+  try {
+    const donations = await ProofModel.find()
+      .populate("donorId", "name mobile email bloodGroup district taluk")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(donations);
+  } catch (error) {
+    console.error("Error fetching donations:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch donations",
+    });
+  }
+};
+const updateDonationStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, adminRemarks } = req.body;
+
+    console.log(id, status, adminRemarks);
+
+    const donation = await ProofModel.findById(id);
+
+    if (!donation) {
+      return res.status(404).json({ message: "Donation not found" });
+    }
+
+    donation.status = status;
+    donation.adminRemarks = adminRemarks || "";
+
+    await donation.save();
+console.log("working");
+
+    // ✅ If donation verified update donor latest donation date
+    if (status === "verified") {
+      const donor = await DonorModel.findById(donation.donorId);
+
+      if (donor) {
+        const verifiedDate = new Date(donation.donationDate);
+        const existingDate = donor.latestDonatedDate
+          ? new Date(donor.latestDonatedDate)
+          : null;
+
+        // If no existing date OR verified date is newer
+        if (!existingDate || verifiedDate > existingDate) {
+          donor.latestDonatedDate = verifiedDate;
+        }
+
+        await donor.save();
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Donation updated successfully",
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
 
 
 
@@ -845,5 +915,6 @@ module.exports = {
   deleteContacts,
   updateContactStatus,
   replyToContact,
-  
+  getAllDonations,
+  updateDonationStatus
 };

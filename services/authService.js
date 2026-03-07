@@ -8,6 +8,9 @@ const { sendOtpEmail, sendPasswordEmail } = require("../utilityFunctions/nodeMai
 
 // REGISTER
 const registerDonor = async (data) => {
+
+  console.log("registering");
+  
   const existingDonor = await DonerModel.findOne({ email: data.email });
 
   const otp = Math.floor(1000 + Math.random() * 9000).toString();
