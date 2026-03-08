@@ -7,6 +7,7 @@ const profileController = require("../controllers/profileController");
 const chatController = require("../controllers/chatController");
 const campController = require("../controllers/campController");
 const donationController = require("../controllers/donationController");
+const galleryController = require("../controllers/galleryController")
 
 const { authenticateToken } = require("../middleware/authentication");
 const upload = require("../config/multer-config");
@@ -34,6 +35,8 @@ donorRoute.post("/contact", contactController.contactUs);
 
 donorRoute.get("/donations/search", donationController.searchUser);
 
+donorRoute.get("/gallery",galleryController.getGallery)
+
 
 // ---------- PROTECTED ----------
 donorRoute.use(authenticateToken);
@@ -58,6 +61,9 @@ donorRoute.get("/contact/history", contactController.getMyContactHistory);
 donorRoute.get("/donations/history", donationController.getDonationHistory);
 donorRoute.post("/donations/proof", upload.single("image"), donationController.uploadDonationProof);
 donorRoute.delete("/donations/proof:id", donationController.deleteDonationProof);
+
+
+
 
 
 module.exports = donorRoute;
