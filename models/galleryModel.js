@@ -77,22 +77,34 @@ const gallerySchema = new mongoose.Schema(
       enum: ["draft", "published"],
       default: "draft",
     },
-
-    likes: {
-      type: Number,
-      default: 0,
-    },
+likes: {
+  type: [mongoose.Schema.Types.ObjectId],
+  ref: "User",
+  default: []
+},
 
     views: {
       type: Number,
       default: 0,
     },
 
-    comments: {
-      type: Number,
-      default: 0,
-    },
-
+   comments: {
+  type: [
+    {
+      userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User"
+      },
+      user: String,
+      text: String,
+      time: {
+        type: Date,
+        default: Date.now
+      }
+    }
+  ],
+  default: []
+},
     uploadedBy: {
       type: String,
       default: "Admin",

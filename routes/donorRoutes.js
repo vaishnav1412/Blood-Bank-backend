@@ -38,6 +38,7 @@ donorRoute.get("/donations/search", donationController.searchUser);
 donorRoute.get("/gallery",galleryController.getGallery)
 
 
+
 // ---------- PROTECTED ----------
 donorRoute.use(authenticateToken);
 
@@ -62,6 +63,10 @@ donorRoute.get("/donations/history", donationController.getDonationHistory);
 donorRoute.post("/donations/proof", upload.single("image"), donationController.uploadDonationProof);
 donorRoute.delete("/donations/proof:id", donationController.deleteDonationProof);
 
+
+//GALLERY
+donorRoute.patch("/gallery/like/:id", galleryController.likeGalleryItem);
+donorRoute.post("/gallery/comment/:id", galleryController.addComment);
 
 
 

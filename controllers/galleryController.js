@@ -1,10 +1,14 @@
 const galleryModel = require("../models/galleryModel");
-const {fetchGalleryItems} = require("../services/galleryService");
+const donorModel = require("../models/donerModel");
+const {
+  fetchGalleryItems,
+  toggleLikeGalleryItem,
+  addCommentToGallery,
+} = require("../services/galleryService");
 
 const getGallery = async (req, res) => {
-
   console.log("gallery working");
-  
+
   try {
     const gallery = await fetchGalleryItems();
 
@@ -25,27 +29,73 @@ const getGallery = async (req, res) => {
 const likeGalleryItem = async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.user.id;
 
-    const item = await galleryModel.findByIdAndUpdate(
-      id,
-      { $inc: { likes: 1 } },
-      { new: true }
-    );
+    const result = await toggleLikeGalleryItem(id, userId);
 
     res.json({
       success: true,
-      data: item,
+      likes: result.likes,
+      liked: result.liked,
     });
   } catch (error) {
+    console.error("LIKE ERROR:", error);
+
+    if (error.message === "Item not found") {
+      return res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
     res.status(500).json({
       success: false,
-      message: "Failed to like item",
+      message: "Like failed",
     });
   }
 };
 
+const addComment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { text } = req.body;
+    const userId = req.user.id;
 
-module.exports ={
-    getGallery,
-    likeGalleryItem
-}
+    const comments = await addCommentToGallery(id, userId, text);
+
+    res.json({
+      success: true,
+      data: comments,
+    });
+  } catch (error) {
+    console.error("COMMENT ERROR:", error);
+
+    if (
+      error.message === "Gallery item not found" ||
+      error.message === "User not found"
+    ) {
+      return res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    if (error.message === "Comment cannot be empty") {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Comment failed",
+    });
+  }
+};
+
+module.exports = {
+  getGallery,
+  likeGalleryItem,
+  addComment,
+};
